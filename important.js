@@ -11,6 +11,7 @@ const smtpUsername = process.env.SMTP_USERNAME;
 const smtpPassword = process.env.SMTP_PASSWORD;
 
 const clientURL = process.env.CLIENT_URL;
+const frontEndURL = process.env.FRONT_END_URL;
 
 export {
   port,
@@ -21,4 +22,5 @@ export {
   smtpUsername,
   smtpPassword,
   clientURL,
+  frontEndURL,
 };
