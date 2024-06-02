@@ -22,7 +22,11 @@ const limiter = rateLimit({
 //middleware
 app.use(
   cors({
-    origin: ["http://localhost:3000", "http://localhost:5173"],
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:5173",
+      "https://restaurant-management-ui.vercel.app",
+    ],
     credentials: true,
     optionsSuccessStatus: 200,
   })
