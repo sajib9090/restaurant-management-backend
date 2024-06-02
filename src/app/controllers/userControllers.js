@@ -16,7 +16,7 @@ import {
   jwtAccessToken,
   jwtRefreshToken,
   jwtSecret,
-} from "../../important.js";
+} from "../../../important.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { emailWithNodeMailer } from "../helpers/email.js";

@@ -1,6 +1,6 @@
 import createError from "http-errors";
 import jwt from "jsonwebtoken";
-import { jwtAccessToken } from "../../important.js";
+import { jwtAccessToken } from "../../../important.js";
 import rateLimit from "express-rate-limit";
 
 const limiter = rateLimit({

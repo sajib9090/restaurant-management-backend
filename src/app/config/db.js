@@ -1,5 +1,5 @@
 import { MongoClient } from "mongodb";
-import { mongoDB_URI } from "../../important.js";
+import { mongoDB_URI } from "../../../important.js";
 
 export const client = new MongoClient(mongoDB_URI, {});
 
