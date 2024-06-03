@@ -89,6 +89,7 @@ export const handleCreateUser = async (req, res, next) => {
       brand_id: brandCount + 1 + "-" + generateBrandCode,
       brand_name: processedBrandName,
       brand_slug: brandSlug,
+      brand_logo: "",
       payment_info: {
         payment_invoices: [],
       },
@@ -105,6 +106,7 @@ export const handleCreateUser = async (req, res, next) => {
     const newUser = {
       user_id: count + 1 + "-" + generateUserCode,
       name: processedName,
+      avatar: "",
       email: processedEmail,
       username: generateUsername,
       brand_id: newBrand?.brand_id,
