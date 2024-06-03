@@ -26,6 +26,7 @@ app.use(
       "http://localhost:3000",
       "http://localhost:5173",
       "https://restaurant-management-ui.vercel.app",
+      "https://restaurantmanagement-aac4e.web.app",
     ],
     credentials: true,
     optionsSuccessStatus: 200,
