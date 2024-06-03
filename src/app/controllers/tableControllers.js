@@ -9,9 +9,11 @@ import crypto from "crypto";
 
 export const handleCreateTable = async (req, res, next) => {
   const { table_name } = req.body;
-  const user = req.user;
-
+  const { user } = req;
   try {
+    if (!user?.brand_id) {
+      throw createError(400, "Fuck off");
+    }
     requiredField(table_name, "Table Name is required");
     const processedTableName = validateString(table_name, "Table Name", 2, 30);
 
@@ -35,7 +37,7 @@ export const handleCreateTable = async (req, res, next) => {
       createdAt: new Date(),
     };
 
-    const table = await tablesCollection.insertOne(newTable);
+    await tablesCollection.insertOne(newTable);
 
     res.status(200).send({
       success: true,
@@ -47,8 +49,11 @@ export const handleCreateTable = async (req, res, next) => {
 };
 
 export const handleGetTables = async (req, res, next) => {
-  const user = req.user;
+  const { user } = req;
   try {
+    if (!user?.brand_id) {
+      throw createError(401, "Fuck off");
+    }
     const tables = await tablesCollection
       .find({ brand: user?.brand_id })
       .sort({ table_name: 1 })

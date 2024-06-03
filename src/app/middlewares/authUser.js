@@ -40,7 +40,8 @@ export const isLoggedIn = async (req, res, next) => {
     if (!decoded) {
       throw createError(403, "Failed to authenticate. Please login");
     }
-    req.user = decoded.user;
+
+    req.user = decoded;
 
     next();
   } catch (error) {
