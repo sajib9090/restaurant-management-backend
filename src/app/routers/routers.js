@@ -9,6 +9,7 @@ import {
 import { isLoggedIn } from "../middlewares/authUser.js";
 import {
   handleCreateTable,
+  handleDeleteTable,
   handleGetTables,
 } from "../controllers/tableControllers.js";
 
@@ -23,3 +24,4 @@ apiRouter.get("/users/auth-manage-token", handleRefreshToken);
 //table route
 apiRouter.post("/tables/create-table", isLoggedIn, handleCreateTable);
 apiRouter.get("/tables/get-all", isLoggedIn, handleGetTables);
+apiRouter.delete("/tables/delete-table", isLoggedIn, handleDeleteTable);

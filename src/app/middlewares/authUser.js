@@ -29,17 +29,20 @@ export const isLoggedIn = async (req, res, next) => {
       throw createError(401, "Token not found. Please Login First");
     }
 
-    try {
-      const decoded = jwt.verify(token, jwtAccessToken);
+    let decoded;
 
-      req.user = decoded;
-      next();
+    try {
+      decoded = jwt.verify(token, jwtAccessToken);
     } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        throw createError(401, "Unauthorized. Key expired");
-      }
-      throw createError(401, "Unauthorized. Invalid token");
+      throw createError(401, "Unauthorized. Key expired");
     }
+
+    if (!decoded) {
+      throw createError(403, "Failed to authenticate. Please login");
+    }
+    req.user = decoded.user;
+
+    next();
   } catch (error) {
     return next(error);
   }

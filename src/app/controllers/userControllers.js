@@ -321,17 +321,31 @@ export const handleLoginUser = async (req, res, next) => {
         createError.Unauthorized("You are deleted. Please contact authority")
       );
     }
-
     const loggedInUser = {
-      _id: user._id,
+      _id: new ObjectId("665d4b5e141d782a7cc498fd"),
       user_id: user.user_id,
+      name: user.name,
+      avatar: user.avatar,
+      email: user.email,
+      username: user.username,
       brand_id: user.brand_id,
+      mobile: user.mobile,
       role: user.role,
+      email_verified: user.email_verified,
+      mobile_verified: user.mobile_verified,
+      createdAt: user.createdAt,
     };
 
-    const accessToken = await createJWT(loggedInUser, jwtAccessToken, "10m");
+    const brand = await brandsCollection.findOne({ brand_id: user?.brand_id });
+    if (!brand) {
+      throw createError(400, "Something wrong. Login again");
+    }
 
-    const refreshToken = await createJWT(loggedInUser, jwtRefreshToken, "7d");
+    const userWithBrand = { ...loggedInUser, brand };
+
+    const accessToken = await createJWT(userWithBrand, jwtAccessToken, "10m");
+
+    const refreshToken = await createJWT(userWithBrand, jwtRefreshToken, "7d");
     res.cookie("refreshToken", refreshToken, {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
       httpOnly: true,
@@ -342,7 +356,7 @@ export const handleLoginUser = async (req, res, next) => {
     res.status(200).send({
       success: true,
       message: "User logged in successfully",
-      data: loggedInUser,
+      data: userWithBrand,
       accessToken,
     });
   } catch (error) {
