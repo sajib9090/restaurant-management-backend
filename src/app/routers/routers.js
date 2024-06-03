@@ -10,6 +10,7 @@ import { isLoggedIn } from "../middlewares/authUser.js";
 import {
   handleCreateTable,
   handleDeleteTable,
+  handleEditTable,
   handleGetTables,
 } from "../controllers/tableControllers.js";
 
@@ -25,3 +26,4 @@ apiRouter.get("/users/auth-manage-token", handleRefreshToken);
 apiRouter.post("/tables/create-table", isLoggedIn, handleCreateTable);
 apiRouter.get("/tables/get-all", isLoggedIn, handleGetTables);
 apiRouter.delete("/tables/delete-table", isLoggedIn, handleDeleteTable);
+apiRouter.patch("/tables/update-table/:id", isLoggedIn, handleEditTable);

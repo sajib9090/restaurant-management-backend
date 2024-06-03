@@ -12,9 +12,6 @@ export const handleCreateTable = async (req, res, next) => {
   const user = req.user;
 
   try {
-    if (!user?.user_id) {
-      throw createError(400, "Fuck off");
-    }
     requiredField(table_name, "Table Name is required");
     const processedTableName = validateString(table_name, "Table Name", 2, 30);
 
@@ -39,7 +36,6 @@ export const handleCreateTable = async (req, res, next) => {
     };
 
     const table = await tablesCollection.insertOne(newTable);
-    console.log(table);
 
     res.status(200).send({
       success: true,
@@ -52,11 +48,7 @@ export const handleCreateTable = async (req, res, next) => {
 
 export const handleGetTables = async (req, res, next) => {
   const user = req.user;
-
   try {
-    if (!user?.brand_id) {
-      throw createError(401, "Brand not found");
-    }
     const tables = await tablesCollection
       .find({ brand: user?.brand_id })
       .sort({ table_name: 1 })
@@ -88,6 +80,51 @@ export const handleDeleteTable = async (req, res, next) => {
     res.status(200).send({
       success: true,
       message: "Table deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleEditTable = async (req, res, next) => {
+  const { table_name } = req.body;
+  const id = req.params;
+  const user = req.user;
+  try {
+    if (!ObjectId.isValid(id)) {
+      throw createError(400, "Invalid id");
+    }
+    requiredField(table_name, "Table Name is required");
+    const processedTableName = validateString(table_name, "Table Name", 2, 30);
+
+    const existingTable = await tablesCollection.findOne({
+      $and: [{ table_name: processedTableName }, { brand: user?.brand_id }],
+    });
+
+    if (existingTable) {
+      throw createError(400, "Table name already exists");
+    }
+
+    const tableSlug = slugify(processedTableName);
+
+    const editedFields = {
+      table_name: processedTableName,
+      table_slug: tableSlug,
+      updatedBy: user?.user_id,
+      updatedAt: new Date(),
+    };
+
+    const filter = { _id: new ObjectId(id) };
+    const result = await tablesCollection.findOneAndUpdate(filter, {
+      $set: editedFields,
+    });
+
+    if (!result) {
+      throw createError(400, "Table not updated. Try again");
+    }
+    res.status(200).send({
+      success: true,
+      message: "Table updated",
     });
   } catch (error) {
     next(error);
