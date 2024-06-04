@@ -9,9 +9,10 @@ import crypto from "crypto";
 
 export const handleCreateTable = async (req, res, next) => {
   const { table_name } = req.body;
-  const { user } = req;
+  const { user } = req.user;
+
   try {
-    if (!user?.brand_id) {
+    if (!user) {
       throw createError(400, "Fuck off");
     }
     requiredField(table_name, "Table Name is required");
@@ -49,13 +50,15 @@ export const handleCreateTable = async (req, res, next) => {
 };
 
 export const handleGetTables = async (req, res, next) => {
-  const { user } = req;
+  // const { brand_id, user_id } = req.query;
+  const { user } = req.user;
+  console.log(user);
   try {
-    if (!user?.brand_id) {
+    if (!user) {
       throw createError(401, "Fuck off");
     }
     const tables = await tablesCollection
-      .find({ brand: user?.brand_id })
+      .find({ brand: user?.brand_id || brand_id })
       .sort({ table_name: 1 })
       .toArray();
     res.status(200).send({
