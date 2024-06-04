@@ -119,3 +119,25 @@ export const handleEditCategory = async (req, res, next) => {
     next(error);
   }
 };
+
+export const handleDeleteCategory = async (req, res, next) => {
+  const { ids } = req.body;
+  try {
+    if (!Array.isArray(ids)) {
+      throw createError("ids must be an array");
+    }
+
+    const criteria = { category_id: { $in: ids } };
+
+    const result = await categoriesCollection.deleteMany(criteria);
+    if (result.deletedCount == 0) {
+      throw createError(404, "Document not found for deletion");
+    }
+    res.status(200).send({
+      success: true,
+      message: "Category deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};

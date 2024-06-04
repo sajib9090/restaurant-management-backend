@@ -15,9 +15,11 @@ import {
 } from "../controllers/tableControllers.js";
 import {
   handleCreateCategory,
+  handleDeleteCategory,
   handleEditCategory,
   handleGetCategories,
 } from "../controllers/categoryControllers.js";
+import { handleCreateMenuItem, handleGetMenuItems } from "../controllers/menuItemsControllers.js";
 
 export const apiRouter = express.Router();
 
@@ -40,3 +42,15 @@ apiRouter.patch(
   isLoggedIn,
   handleEditCategory
 );
+apiRouter.delete(
+  "/categories/delete-category",
+  isLoggedIn,
+  handleDeleteCategory
+);
+//menu item route
+apiRouter.post(
+  "/menu-items/create-menu-item",
+  isLoggedIn,
+  handleCreateMenuItem
+);
+apiRouter.get("/menu-items/get-all", isLoggedIn, handleGetMenuItems);
