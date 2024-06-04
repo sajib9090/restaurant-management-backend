@@ -3,7 +3,6 @@ import { ObjectId } from "mongodb";
 import { tablesCollection } from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
 import slugify from "slugify";
-import validator from "validator";
 import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
 
@@ -13,7 +12,7 @@ export const handleCreateTable = async (req, res, next) => {
 
   try {
     if (!user) {
-      throw createError(400, "Fuck off");
+      throw createError(401, "User not found. Login Again");
     }
     requiredField(table_name, "Table Name is required");
     const processedTableName = validateString(table_name, "Table Name", 2, 30);
@@ -29,6 +28,7 @@ export const handleCreateTable = async (req, res, next) => {
     const tableSlug = slugify(processedTableName);
     const tableCount = await tablesCollection.countDocuments();
     const generateTableCode = crypto.randomBytes(12).toString("hex");
+    
     const newTable = {
       table_name: processedTableName,
       table_id: tableCount + 1 + "-" + generateTableCode,
@@ -50,15 +50,13 @@ export const handleCreateTable = async (req, res, next) => {
 };
 
 export const handleGetTables = async (req, res, next) => {
-  // const { brand_id, user_id } = req.query;
   const { user } = req.user;
-  console.log(user);
   try {
     if (!user) {
-      throw createError(401, "Fuck off");
+      throw createError(401, "User not found. Login Again");
     }
     const tables = await tablesCollection
-      .find({ brand: user?.brand_id || brand_id })
+      .find({ brand: user?.brand_id })
       .sort({ table_name: 1 })
       .toArray();
     res.status(200).send({
@@ -97,8 +95,11 @@ export const handleDeleteTable = async (req, res, next) => {
 export const handleEditTable = async (req, res, next) => {
   const { table_name } = req.body;
   const id = req.params;
-  const user = req.user;
+  const { user } = req.user;
   try {
+    if (!user) {
+      throw createError(401, "User not found. Login Again");
+    }
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid id");
     }

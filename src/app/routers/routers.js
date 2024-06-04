@@ -13,6 +13,11 @@ import {
   handleEditTable,
   handleGetTables,
 } from "../controllers/tableControllers.js";
+import {
+  handleCreateCategory,
+  handleEditCategory,
+  handleGetCategories,
+} from "../controllers/categoryControllers.js";
 
 export const apiRouter = express.Router();
 
@@ -27,3 +32,11 @@ apiRouter.post("/tables/create-table", isLoggedIn, handleCreateTable);
 apiRouter.get("/tables/get-all", isLoggedIn, handleGetTables);
 apiRouter.delete("/tables/delete-table", isLoggedIn, handleDeleteTable);
 apiRouter.patch("/tables/update-table/:id", isLoggedIn, handleEditTable);
+//category route
+apiRouter.post("/categories/create-category", isLoggedIn, handleCreateCategory);
+apiRouter.get("/categories/get-all", isLoggedIn, handleGetCategories);
+apiRouter.patch(
+  "/categories/update-category/:id",
+  isLoggedIn,
+  handleEditCategory
+);

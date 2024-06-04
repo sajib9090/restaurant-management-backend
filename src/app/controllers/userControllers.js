@@ -366,7 +366,7 @@ export const handleLoginUser = async (req, res, next) => {
 
 export const handleGetUser = async (req, res, next) => {
   const { id } = req.params;
-  const user = req.user;
+  const { user } = req.user;
   try {
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid params id");
