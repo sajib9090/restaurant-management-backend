@@ -25,6 +25,11 @@ import {
   handleEditMenuItem,
   handleGetMenuItems,
 } from "../controllers/menuItemsControllers.js";
+import {
+  handleCreateMemberItem,
+  handleDeleteMember,
+  handleGetMembers,
+} from "../controllers/memberControllers.js";
 
 export const apiRouter = express.Router();
 
@@ -69,3 +74,7 @@ apiRouter.patch(
   isLoggedIn,
   handleEditMenuItem
 );
+//member route
+apiRouter.post("/members/create-member", isLoggedIn, handleCreateMemberItem);
+apiRouter.get("/members/get-all", isLoggedIn, handleGetMembers);
+apiRouter.delete("/members/delete-member", isLoggedIn, handleDeleteMember);

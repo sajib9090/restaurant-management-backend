@@ -35,18 +35,11 @@ export const handleCreateMenuItem = async (req, res, next) => {
     }
 
     const existingItem = await menuItemsCollection.findOne({
-      $and: [
-        { item_name: processedItemName },
-        { brand: user?.brand_id },
-        { category: processedCategoryName },
-      ],
+      $and: [{ item_name: processedItemName }, { brand: user?.brand_id }],
     });
 
     if (existingItem) {
-      throw createError(
-        400,
-        "Item already exist with same category in this brand"
-      );
+      throw createError(400, "Item already exists in this brand");
     }
 
     const existingCategory = await categoriesCollection.findOne({
@@ -93,6 +86,7 @@ export const handleGetMenuItems = async (req, res, next) => {
 
     const search = req.query.search || "";
     const category = req.query.category || "";
+    const price = req.query.price || "";
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit);
 
@@ -140,9 +134,17 @@ export const handleGetMenuItems = async (req, res, next) => {
       }
     }
 
+    let sortCriteria = { item_name: 1 };
+
+    if (price === "high-to-low") {
+      sortCriteria = { item_price: -1 };
+    } else if (price === "low-to-high") {
+      sortCriteria = { item_price: 1 };
+    }
+
     const menus = await menuItemsCollection
       .find(query)
-      .sort({ item_name: 1 })
+      .sort(sortCriteria)
       .limit(limit)
       .skip((page - 1) * limit)
       .toArray();
@@ -212,7 +214,15 @@ export const handleEditMenuItem = async (req, res, next) => {
 
     if (item_name) {
       const processedItemName = validateString(item_name, "Item Name", 2, 100);
+      const existingItemName = await menuItemsCollection.findOne({
+        $and: [{ brand: user?.brand_id }, { item_name: processedItemName }],
+      });
+      if (existingItemName) {
+        throw createError(404, "Item name already exists.");
+      }
+      const itemNameSlug = slugify(processedItemName);
       updateFields.item_name = processedItemName;
+      updateFields.item_slug = itemNameSlug;
     }
     if (category) {
       const processedCategoryName = validateString(
@@ -232,7 +242,11 @@ export const handleEditMenuItem = async (req, res, next) => {
 
     if (discount !== undefined) {
       const discountValue =
-        discount === "true" ? true : existingMenuItem?.discount;
+        discount === "true"
+          ? true
+          : discount === "false"
+          ? false
+          : existingMenuItem?.discount;
       updateFields.discount = discountValue;
     }
     if (item_price) {
