@@ -140,6 +140,40 @@ export const handleGetMembers = async (req, res, next) => {
   }
 };
 
+export const handleGetSingleMemberByMobile = async (req, res, next) => {
+  const { mobile } = req.params;
+  const { user } = req.user;
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Please login");
+    }
+
+    requiredField(mobile, "Mobile number is required");
+    if (mobile?.length !== 11) {
+      throw createError(400, "Mobile number should be 11 characters");
+    }
+    if (!validator.isMobilePhone(mobile, "any")) {
+      throw createError(400, "Invalid mobile number");
+    }
+
+    const member = await membersCollection.findOne({
+      $and: [{ brand: user?.brand_id }, { mobile: mobile }],
+    });
+
+    if (!member) {
+      throw createError(400, "Member not found with this number");
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "Member retrieved successfully",
+      data: member,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const handleDeleteMember = async (req, res, next) => {
   const { ids } = req.body;
 

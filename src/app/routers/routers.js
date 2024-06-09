@@ -29,6 +29,7 @@ import {
   handleCreateMember,
   handleDeleteMember,
   handleGetMembers,
+  handleGetSingleMemberByMobile,
 } from "../controllers/memberControllers.js";
 import {
   handleCreateStaff,
@@ -82,6 +83,11 @@ apiRouter.patch(
 //member route
 apiRouter.post("/members/create-member", isLoggedIn, handleCreateMember);
 apiRouter.get("/members/get-all", isLoggedIn, handleGetMembers);
+apiRouter.get(
+  "/members/member/:mobile",
+  isLoggedIn,
+  handleGetSingleMemberByMobile
+);
 apiRouter.delete("/members/delete-member", isLoggedIn, handleDeleteMember);
 //staff route
 apiRouter.post("/staffs/create-staff", isLoggedIn, handleCreateStaff);
