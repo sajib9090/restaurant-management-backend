@@ -36,6 +36,10 @@ import {
   handleDeleteStaff,
   handleGetStaffs,
 } from "../controllers/staffControllers.js";
+import {
+  handleAddSoldInvoice,
+  handleGetSoldInvoiceById,
+} from "../controllers/soldInvoiceControllers.js";
 
 export const apiRouter = express.Router();
 
@@ -93,3 +97,14 @@ apiRouter.delete("/members/delete-member", isLoggedIn, handleDeleteMember);
 apiRouter.post("/staffs/create-staff", isLoggedIn, handleCreateStaff);
 apiRouter.get("/staffs/get-all", isLoggedIn, handleGetStaffs);
 apiRouter.delete("/staffs/delete-staff", isLoggedIn, handleDeleteStaff);
+//sold-invoice route
+apiRouter.post(
+  "/sold-invoices/add-sold-invoice",
+  isLoggedIn,
+  handleAddSoldInvoice
+);
+apiRouter.get(
+  "/sold-invoices/get-sold-invoice/:invoice_id",
+  isLoggedIn,
+  handleGetSoldInvoiceById
+);

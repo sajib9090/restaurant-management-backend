@@ -28,7 +28,7 @@ export const handleCreateTable = async (req, res, next) => {
     const tableSlug = slugify(processedTableName);
     const tableCount = await tablesCollection.countDocuments();
     const generateTableCode = crypto.randomBytes(12).toString("hex");
-    
+
     const newTable = {
       table_name: processedTableName,
       table_id: tableCount + 1 + "-" + generateTableCode,
