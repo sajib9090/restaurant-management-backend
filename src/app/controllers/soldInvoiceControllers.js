@@ -60,7 +60,7 @@ export const handleAddSoldInvoice = async (req, res, next) => {
       totalDiscount = parseFloat(total_discount);
     }
 
-    const count = await membersCollection.countDocuments();
+    const count = await soldInvoiceCollection.countDocuments();
     const generateCode = crypto.randomBytes(16).toString("hex");
 
     const newInvoice = {
@@ -136,6 +136,168 @@ export const handleGetSoldInvoiceById = async (req, res, next) => {
       success: true,
       message: "Sold invoice retrieved successfully",
       data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleGetSoldInvoices = async (req, res, next) => {
+  const { user } = req.user;
+  const { date, start_date, end_date, month } = req.query;
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit);
+
+  try {
+    if (!user) {
+      throw createError(401, "User not found. Login Again");
+    }
+
+    let query = { brand: user?.brand_id };
+
+    if (user?.role === "super admin") {
+      query = {};
+
+      if (date) {
+        if (
+          !validator.isDate(date, { format: "YYYY-MM-DD", strictMode: true })
+        ) {
+          throw createError(
+            400,
+            "Invalid date format. Expected format: YYYY-MM-DD"
+          );
+        }
+        const startOfDay = new Date(date);
+        const endOfDay = new Date(date);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+      }
+
+      if (start_date && end_date) {
+        if (
+          !validator.isDate(start_date, {
+            format: "YYYY-MM-DD",
+            strictMode: true,
+          })
+        ) {
+          throw createError(
+            400,
+            "Invalid start date format. Expected format: YYYY-MM-DD"
+          );
+        }
+        if (
+          !validator.isDate(end_date, {
+            format: "YYYY-MM-DD",
+            strictMode: true,
+          })
+        ) {
+          throw createError(
+            400,
+            "Invalid end date format. Expected format: YYYY-MM-DD"
+          );
+        }
+        const startOfDay = new Date(start_date);
+        const endOfDay = new Date(end_date);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+      }
+      if (month) {
+        if (!validator.isISO8601(month, { strict: true })) {
+          throw createError(
+            400,
+            "Invalid month format. Expected format: YYYY-MM"
+          );
+        }
+        const startOfMonth = new Date(month);
+        startOfMonth.setUTCDate(1);
+        const endOfMonth = new Date(startOfMonth);
+        endOfMonth.setUTCMonth(endOfMonth.getUTCMonth() + 1);
+        endOfMonth.setUTCDate(0);
+        endOfMonth.setUTCHours(23, 59, 59, 999);
+        query.createdAt = { $gte: startOfMonth, $lte: endOfMonth };
+      }
+    } else {
+      if (date) {
+        if (
+          !validator.isDate(date, { format: "YYYY-MM-DD", strictMode: true })
+        ) {
+          throw createError(
+            400,
+            "Invalid date format. Expected format: YYYY-MM-DD"
+          );
+        }
+        const startOfDay = new Date(date);
+        const endOfDay = new Date(date);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+      }
+
+      if (start_date && end_date) {
+        if (
+          !validator.isDate(start_date, {
+            format: "YYYY-MM-DD",
+            strictMode: true,
+          })
+        ) {
+          throw createError(
+            400,
+            "Invalid start date format. Expected format: YYYY-MM-DD"
+          );
+        }
+        if (
+          !validator.isDate(end_date, {
+            format: "YYYY-MM-DD",
+            strictMode: true,
+          })
+        ) {
+          throw createError(
+            400,
+            "Invalid end date format. Expected format: YYYY-MM-DD"
+          );
+        }
+        const startOfDay = new Date(start_date);
+        const endOfDay = new Date(end_date);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+        query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+      }
+
+      if (month) {
+        if (!validator.isISO8601(month, { strict: true })) {
+          throw createError(
+            400,
+            "Invalid month format. Expected format: YYYY-MM"
+          );
+        }
+        const startOfMonth = new Date(month);
+        startOfMonth.setUTCDate(1);
+        const endOfMonth = new Date(startOfMonth);
+        endOfMonth.setUTCMonth(endOfMonth.getUTCMonth() + 1);
+        endOfMonth.setUTCDate(0);
+        endOfMonth.setUTCHours(23, 59, 59, 999);
+        query.createdAt = { $gte: startOfMonth, $lte: endOfMonth };
+      }
+    }
+
+    const soldInvoicesQuery = soldInvoiceCollection.find(query);
+
+    if (limit) {
+      soldInvoicesQuery.limit(limit).skip((page - 1) * limit);
+    }
+
+    const soldInvoices = await soldInvoicesQuery.toArray();
+    const count = await soldInvoiceCollection.countDocuments(query);
+
+    res.status(200).send({
+      success: true,
+      message: "Sold invoices retrieved successfully",
+      data_found: count,
+      pagination: {
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        previousPage: page > 1 ? page - 1 : null,
+        nextPage: page < Math.ceil(count / limit) ? page + 1 : null,
+      },
+      data: soldInvoices,
     });
   } catch (error) {
     next(error);

@@ -257,6 +257,10 @@ export const handleEditMenuItem = async (req, res, next) => {
       updateFields.item_price = price;
     }
 
+    if (Object.keys(updateFields).length === 0) {
+      throw createError(400, "No fields to update");
+    }
+
     await menuItemsCollection.updateOne(
       { _id: new ObjectId(id) },
       { $set: updateFields }

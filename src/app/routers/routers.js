@@ -1,8 +1,10 @@
 import express from "express";
 import {
   handleActivateUserAccount,
+  handleAddBrandMaintainUser,
   handleCreateUser,
   handleGetUser,
+  handleGetUsers,
   handleLoginUser,
   handleRefreshToken,
 } from "../controllers/userControllers.js";
@@ -28,6 +30,7 @@ import {
 import {
   handleCreateMember,
   handleDeleteMember,
+  handleEditMember,
   handleGetMembers,
   handleGetSingleMemberByMobile,
 } from "../controllers/memberControllers.js";
@@ -39,6 +42,7 @@ import {
 import {
   handleAddSoldInvoice,
   handleGetSoldInvoiceById,
+  handleGetSoldInvoices,
 } from "../controllers/soldInvoiceControllers.js";
 
 export const apiRouter = express.Router();
@@ -48,7 +52,13 @@ apiRouter.post("/users/create-user", handleCreateUser);
 apiRouter.get("/users/verify/:token", handleActivateUserAccount);
 apiRouter.post("/users/auth-user-login", handleLoginUser);
 apiRouter.get("/users/find-user/:id", isLoggedIn, handleGetUser);
+apiRouter.get("/users/find-users", isLoggedIn, handleGetUsers);
 apiRouter.get("/users/auth-manage-token", handleRefreshToken);
+apiRouter.post(
+  "/users/auth-create-user",
+  isLoggedIn,
+  handleAddBrandMaintainUser
+);
 //table route
 apiRouter.post("/tables/create-table", isLoggedIn, handleCreateTable);
 apiRouter.get("/tables/get-all", isLoggedIn, handleGetTables);
@@ -93,6 +103,7 @@ apiRouter.get(
   handleGetSingleMemberByMobile
 );
 apiRouter.delete("/members/delete-member", isLoggedIn, handleDeleteMember);
+apiRouter.patch("/members/update-member/:id", isLoggedIn, handleEditMember);
 //staff route
 apiRouter.post("/staffs/create-staff", isLoggedIn, handleCreateStaff);
 apiRouter.get("/staffs/get-all", isLoggedIn, handleGetStaffs);
@@ -107,4 +118,9 @@ apiRouter.get(
   "/sold-invoices/get-sold-invoice/:invoice_id",
   isLoggedIn,
   handleGetSoldInvoiceById
+);
+apiRouter.get(
+  "/sold-invoices/get-sold-invoices",
+  isLoggedIn,
+  handleGetSoldInvoices
 );

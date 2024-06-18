@@ -39,6 +39,10 @@ export const handleCreateUser = async (req, res, next) => {
       throw createError(400, "Invalid email address");
     }
 
+    if (mobile?.length !== 11) {
+      throw createError(400, "Mobile number must be 11 characters");
+    }
+
     if (!validator.isMobilePhone(mobile, "any")) {
       throw createError(400, "Invalid mobile number");
     }
@@ -364,6 +368,87 @@ export const handleLoginUser = async (req, res, next) => {
   }
 };
 
+export const handleGetUsers = async (req, res, next) => {
+  const { user } = req.user;
+
+  const search = req.query.search || "";
+  const page = Number(req.query.page) || 1;
+  const limit = Number(req.query.limit);
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Please login again.");
+    }
+    const regExSearch = new RegExp(".*" + search + ".*", "i");
+
+    let query;
+
+    if (
+      user?.role != "super admin" &&
+      user?.role != "admin" &&
+      user?.role != "chairman"
+    ) {
+      throw createError(404, "Forbidden access. Only authority can access");
+    }
+
+    if (user?.role == "super admin") {
+      if (search) {
+        query = {
+          $or: [
+            { name: regExSearch },
+            { mobile: regExSearch },
+            { email: regExSearch },
+            { username: regExSearch },
+          ],
+        };
+      } else {
+        query = {};
+      }
+    } else {
+      if (search) {
+        query = {
+          $and: [
+            {
+              brand_id: user?.brand_id,
+            },
+          ],
+          $or: [
+            { name: regExSearch },
+            { mobile: regExSearch },
+            { email: regExSearch },
+            { username: regExSearch },
+          ],
+        };
+      } else {
+        query = { brand_id: user?.brand_id };
+      }
+    }
+
+    let sortCriteria = { name: 1 };
+    const users = await usersCollection
+      .find(query)
+      .sort(sortCriteria)
+      .limit(limit)
+      .skip((page - 1) * limit)
+      .toArray();
+
+    const count = await usersCollection.countDocuments(query);
+    res.status(200).send({
+      success: true,
+      message: "Users retrieved successfully",
+      data_found: count,
+      pagination: {
+        totalPages: Math.ceil(count / limit),
+        currentPage: page,
+        previousPage: page - 1 > 0 ? page - 1 : null,
+        nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
+      },
+      data: users,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const handleGetUser = async (req, res, next) => {
   const { id } = req.params;
   const { user } = req.user;
@@ -424,6 +509,139 @@ export const handleRefreshToken = async (req, res, next) => {
       success: true,
       message: "New access token generate successfully",
       accessToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleAddBrandMaintainUser = async (req, res, next) => {
+  const { user } = req.user;
+  const { name, email, mobile, password, role } = req.body;
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Please login again");
+    }
+    if (user?.role !== "admin" && user?.role !== "chairman") {
+      throw createError(404, "Forbidden access. Only authority can access");
+    }
+
+    requiredField(name, "Name is required");
+    requiredField(email, "Email is required");
+    requiredField(mobile, "Mobile number is required");
+    requiredField(password, "Password is required");
+    requiredField(role, "Role is required");
+
+    const processedName = validateString(name, "Name", 3, 30);
+    const processedEmail = email?.toLowerCase();
+    const processedRole = validateString(role, "Role", 3, 10);
+
+    if (!validator.isEmail(processedEmail)) {
+      throw createError(400, "Invalid email address");
+    }
+
+    if (mobile?.length !== 11) {
+      throw createError(400, "Mobile number must be 11 characters");
+    }
+
+    if (!validator.isMobilePhone(mobile, "any")) {
+      throw createError(400, "Invalid mobile number");
+    }
+
+    const allowedRoles = ["chairman", "admin", "regular"];
+
+    if (!allowedRoles.includes(processedRole)) {
+      throw createError(
+        400,
+        "Invalid role. Only chairman, admin, regular are allowed"
+      );
+    }
+
+    const generateUsername = processedEmail?.split("@")[0];
+    await duplicateChecker(
+      usersCollection,
+      "email",
+      processedEmail,
+      "Email already exists. Please login"
+    );
+
+    await duplicateChecker(
+      usersCollection,
+      "mobile",
+      mobile,
+      "Mobile number already exists. Please login"
+    );
+
+    const trimmedPassword = password.replace(/\s/g, "");
+    if (trimmedPassword.length < 8 || trimmedPassword.length > 30) {
+      throw createError(
+        400,
+        "Password must be at least 8 characters long and not more than 30 characters long"
+      );
+    }
+
+    if (!/[a-z]/.test(trimmedPassword) || !/\d/.test(trimmedPassword)) {
+      throw createError(
+        400,
+        "Password must contain at least one letter (a-z) and one number"
+      );
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(trimmedPassword, salt);
+
+    const count = await usersCollection.countDocuments();
+    const generateUserCode = crypto.randomBytes(16).toString("hex");
+
+    const newUser = {
+      user_id: count + 1 + "-" + generateUserCode,
+      name: processedName,
+      avatar: "",
+      email: processedEmail,
+      username: generateUsername,
+      brand_id: user?.brand_id,
+      mobile: mobile,
+      password: hashedPassword,
+      role: processedRole,
+      banned_user: false,
+      deleted_user: false,
+      email_verified: false,
+      mobile_verified: false,
+      createdAt: new Date(),
+    };
+
+    const userResult = await usersCollection.insertOne(newUser);
+    if (!userResult?.insertedId) {
+      throw createError(500, "Can't create user try again");
+    }
+
+    const token = await createJWT(
+      {
+        user_id: count + 1 + "-" + generateUserCode,
+      },
+      jwtSecret,
+      "15m"
+    );
+
+    //prepare email
+    const emailData = {
+      email,
+      subject: "Account Creation Confirmation",
+      html: `<h2 style="text-transform: capitalize;">Hello ${processedName}!</h2>
+      <p>Please click here to <a href="${clientURL}/api/v2/users/verify/${token}">activate your account</a></p>
+      <p>This link will expires in 5 minutes</p>`,
+    };
+
+    // send email with nodemailer
+    try {
+      await emailWithNodeMailer(emailData);
+    } catch (emailError) {
+      next(createError(500, "Failed to send verification email"));
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "New user created successfully for maintain brand",
     });
   } catch (error) {
     next(error);

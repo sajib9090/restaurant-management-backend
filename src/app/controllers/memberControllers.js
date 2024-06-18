@@ -196,3 +196,57 @@ export const handleDeleteMember = async (req, res, next) => {
     next(error);
   }
 };
+
+export const handleEditMember = async (req, res, next) => {
+  const { user } = req.user;
+  const id = req.params;
+  const { name, discount } = req.body;
+  try {
+    if (!user) {
+      throw createError(401, "User not found. Login Again");
+    }
+    if (!ObjectId.isValid(id)) {
+      throw createError(400, "Invalid id");
+    }
+
+    const existingMember = await membersCollection.findOne({
+      _id: new ObjectId(id),
+    });
+    if (!existingMember) {
+      throw createError(404, "Member not found");
+    }
+
+    let updateFields = {};
+    let processedName;
+    if (name) {
+      processedName = validateString(name, "Name", 2, 100);
+      updateFields.name = processedName;
+    }
+
+    if (discount) {
+      const discountValue = parseFloat(discount);
+      if (
+        typeof discountValue !== "number" ||
+        discountValue < 0 ||
+        isNaN(discountValue)
+      ) {
+        throw createError(400, "Discount value must be a positive number");
+      }
+      updateFields.discount_value = discountValue;
+    }
+    if (Object.keys(updateFields).length === 0) {
+      throw createError(400, "No fields to update");
+    }
+
+    await membersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateFields }
+    );
+    res.status(200).send({
+      success: true,
+      message: "Member ",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
