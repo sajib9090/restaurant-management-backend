@@ -341,8 +341,10 @@ export const handleLoginUser = async (req, res, next) => {
     };
 
     const brand = await brandsCollection.findOne({ brand_id: user?.brand_id });
-    if (!brand) {
-      throw createError(400, "Something wrong. Login again");
+    if (loggedInUser?.role !== "super admin") {
+      if (!brand) {
+        throw createError(400, "Something wrong. Login again");
+      }
     }
 
     const userWithBrand = { ...loggedInUser, brand };
