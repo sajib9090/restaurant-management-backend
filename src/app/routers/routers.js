@@ -3,10 +3,13 @@ import {
   handleActivateUserAccount,
   handleAddBrandMaintainUser,
   handleCreateUser,
+  handleGetCurrentUser,
   handleGetUser,
   handleGetUsers,
   handleLoginUser,
   handleRefreshToken,
+  handleRemoveAvatar,
+  handleUpdateUserAvatar,
 } from "../controllers/userControllers.js";
 import { isLoggedIn } from "../middlewares/authUser.js";
 import {
@@ -44,6 +47,8 @@ import {
   handleGetSoldInvoiceById,
   handleGetSoldInvoices,
 } from "../controllers/soldInvoiceControllers.js";
+import { handleUploadAvatar } from "../controllers/avatar.js";
+import { upload } from "../middlewares/multer.js";
 
 export const apiRouter = express.Router();
 
@@ -52,8 +57,16 @@ apiRouter.post("/users/create-user", handleCreateUser);
 apiRouter.get("/users/verify/:token", handleActivateUserAccount);
 apiRouter.post("/users/auth-user-login", handleLoginUser);
 apiRouter.get("/users/find-user/:id", isLoggedIn, handleGetUser);
+apiRouter.get("/users/find-current-user", isLoggedIn, handleGetCurrentUser);
 apiRouter.get("/users/find-users", isLoggedIn, handleGetUsers);
 apiRouter.get("/users/auth-manage-token", handleRefreshToken);
+apiRouter.patch(
+  "/users/update-avatar/:id",
+  upload.single("avatar"),
+  isLoggedIn,
+  handleUpdateUserAvatar
+);
+apiRouter.patch("/users/remove-avatar/:id", isLoggedIn, handleRemoveAvatar);
 apiRouter.post(
   "/users/auth-create-user",
   isLoggedIn,
@@ -124,3 +137,5 @@ apiRouter.get(
   isLoggedIn,
   handleGetSoldInvoices
 );
+
+apiRouter.post("/avatars/upload", upload.single("avatar"), handleUploadAvatar);

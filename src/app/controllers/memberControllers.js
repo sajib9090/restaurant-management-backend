@@ -7,11 +7,11 @@ import crypto from "crypto";
 import validator from "validator";
 
 export const handleCreateMember = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   const { name, mobile } = req.body;
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
 
     requiredField(name, "Name is required");
@@ -63,10 +63,10 @@ export const handleCreateMember = async (req, res, next) => {
 
 export const handleGetMembers = async (req, res, next) => {
   try {
-    const { user } = req.user;
+    const user = req.user.user ? req.user.user : req.user;
 
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
 
     const search = req.query.search || "";
@@ -142,7 +142,7 @@ export const handleGetMembers = async (req, res, next) => {
 
 export const handleGetSingleMemberByMobile = async (req, res, next) => {
   const { mobile } = req.params;
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   try {
     if (!user) {
       throw createError(400, "User not found. Please login");
@@ -176,8 +176,11 @@ export const handleGetSingleMemberByMobile = async (req, res, next) => {
 
 export const handleDeleteMember = async (req, res, next) => {
   const { ids } = req.body;
-
+  const user = req.user.user ? req.user.user : req.user;
   try {
+    if (!user) {
+      throw createError(400, "User not found. Please login again");
+    }
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }
@@ -198,12 +201,12 @@ export const handleDeleteMember = async (req, res, next) => {
 };
 
 export const handleEditMember = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   const id = req.params;
   const { name, discount } = req.body;
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid id");

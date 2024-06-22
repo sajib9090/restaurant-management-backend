@@ -21,6 +21,10 @@ import {
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { emailWithNodeMailer } from "../helpers/email.js";
+import {
+  deleteFromCloudinary,
+  uploadOnCloudinary,
+} from "../helpers/cloudinary.js";
 
 export const handleCreateUser = async (req, res, next) => {
   const { name, email, brand_name, mobile, password } = req.body;
@@ -110,7 +114,7 @@ export const handleCreateUser = async (req, res, next) => {
     const newUser = {
       user_id: count + 1 + "-" + generateUserCode,
       name: processedName,
-      avatar: "",
+      avatar: { id: "", url: "" },
       email: processedEmail,
       username: generateUsername,
       brand_id: newBrand?.brand_id,
@@ -224,8 +228,10 @@ export const handleActivateUserAccount = async (req, res, next) => {
 };
 
 export const handleLoginUser = async (req, res, next) => {
+  // get data
   const { username_email_mobile, password } = req.body;
   try {
+    // validate
     if (!username_email_mobile || !password) {
       throw createError(
         400,
@@ -261,6 +267,7 @@ export const handleLoginUser = async (req, res, next) => {
       );
     }
 
+    // check user exist ot not
     const user = await usersCollection.findOne({
       $or: [
         { username: stringData },
@@ -283,13 +290,14 @@ export const handleLoginUser = async (req, res, next) => {
       return next(createError.Unauthorized("Invalid Password"));
     }
 
+    // check email verified or not
     if (!user.email_verified) {
       const token = await createJWT(
         {
           user_id: user.user_id,
         },
         jwtSecret,
-        "15m"
+        "5m"
       );
 
       const email = user.email;
@@ -314,40 +322,33 @@ export const handleLoginUser = async (req, res, next) => {
       );
     }
 
+    // check user band or not
     if (user.banned_user) {
       return next(
         createError.Unauthorized("You are banned. Please contact authority")
       );
     }
 
+    // check user removed or not
     if (user.deleted_user) {
       return next(
         createError.Unauthorized("You are deleted. Please contact authority")
       );
     }
     const loggedInUser = {
-      _id: new ObjectId("665d4b5e141d782a7cc498fd"),
       user_id: user.user_id,
-      name: user.name,
-      avatar: user.avatar,
-      email: user.email,
-      username: user.username,
       brand_id: user.brand_id,
-      mobile: user.mobile,
       role: user.role,
-      email_verified: user.email_verified,
-      mobile_verified: user.mobile_verified,
-      createdAt: user.createdAt,
     };
 
-    const brand = await brandsCollection.findOne({ brand_id: user?.brand_id });
-    if (loggedInUser?.role !== "super admin") {
-      if (!brand) {
-        throw createError(400, "Something wrong. Login again");
-      }
-    }
+    // const brand = await brandsCollection.findOne({ brand_id: user?.brand_id });
+    // if (loggedInUser?.role !== "super admin") {
+    //   if (!brand) {
+    //     throw createError(400, "Something wrong. Login again");
+    //   }
+    // }
 
-    const userWithBrand = { ...loggedInUser, brand };
+    const userWithBrand = { ...loggedInUser };
 
     const accessToken = await createJWT(userWithBrand, jwtAccessToken, "10m");
 
@@ -371,7 +372,7 @@ export const handleLoginUser = async (req, res, next) => {
 };
 
 export const handleGetUsers = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
 
   const search = req.query.search || "";
   const page = Number(req.query.page) || 1;
@@ -451,9 +452,38 @@ export const handleGetUsers = async (req, res, next) => {
   }
 };
 
+export const handleGetCurrentUser = async (req, res, next) => {
+  const user = req.user.user ? req.user.user : req.user;
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Login again");
+    }
+
+    const currentUser = await usersCollection.findOne({
+      user_id: user?.user_id,
+    });
+    const brand = await brandsCollection.findOne({ brand_id: user?.brand_id });
+
+    if (currentUser) {
+      delete currentUser.password;
+    }
+    const response = {
+      ...currentUser,
+      brand,
+    };
+    res.status(200).send({
+      success: true,
+      message: "Current user retrieved successfully with brand info",
+      data: response,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const handleGetUser = async (req, res, next) => {
   const { id } = req.params;
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   try {
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid params id");
@@ -518,7 +548,7 @@ export const handleRefreshToken = async (req, res, next) => {
 };
 
 export const handleAddBrandMaintainUser = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   const { name, email, mobile, password, role } = req.body;
   try {
     if (!user) {
@@ -644,6 +674,106 @@ export const handleAddBrandMaintainUser = async (req, res, next) => {
     res.status(200).send({
       success: true,
       message: "New user created successfully for maintain brand",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleUpdateUserAvatar = async (req, res, next) => {
+  const user = req.user.user ? req.user.user : req.user;
+  const userId = req.params.id;
+  const filePath = req.file.path;
+
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Login Again");
+    }
+    if (userId?.length < 33) {
+      throw createError(400, "Invalid id");
+    }
+
+    if (!filePath) {
+      throw createError(400, "Avatar is required");
+    }
+
+    const existingUser = await usersCollection.findOne({
+      user_id: userId,
+    });
+
+    if (!existingUser) {
+      throw createError(404, "User not found");
+    }
+
+    if (existingUser.avatar && existingUser.avatar.id) {
+      const deletePreviousAvatar = await deleteFromCloudinary(
+        existingUser.avatar.id
+      );
+
+      if (deletePreviousAvatar.result !== "ok") {
+        throw createError(500, "Not updated. Try again");
+      }
+    }
+
+    const avatar = await uploadOnCloudinary(filePath);
+    if (!avatar?.public_id) {
+      throw createError(500, "Something went wrong. Avatar not updated");
+    }
+
+    await usersCollection.findOneAndUpdate(
+      { _id: new ObjectId(existingUser._id) },
+      { $set: { avatar: { id: avatar.public_id, url: avatar.url } } },
+      { returnOriginal: false }
+    );
+
+    res.status(200).send({
+      success: true,
+      message: "Avatar updated",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleRemoveAvatar = async (req, res, next) => {
+  const user = req.user.user ? req.user.user : req.user;
+  const { id } = req.params;
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Login Again");
+    }
+    if (id?.length < 32) {
+      throw createError(400, "Invalid id");
+    }
+
+    const existingUser = await usersCollection.findOne({ user_id: id });
+    if (!existingUser) {
+      throw createError(404, "User not found");
+    }
+
+    if (!existingUser.avatar || !existingUser.avatar.id) {
+      throw createError(400, "You have nothing to remove.");
+    }
+
+    const result = await deleteFromCloudinary(existingUser?.avatar?.id);
+
+    if (result?.result != "ok") {
+      throw createError(500, `Something wet wrong - ${result?.result}`);
+    }
+
+    const updatedUser = await usersCollection.findOneAndUpdate(
+      { user_id: id },
+      { $set: { avatar: { id: "", url: "" } } },
+      { returnOriginal: false }
+    );
+
+    if (!updatedUser?.avatar?.id || !updatedUser?.avatar?.url) {
+      throw createError(500, "User update failed.");
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "User avatar removed",
     });
   } catch (error) {
     next(error);

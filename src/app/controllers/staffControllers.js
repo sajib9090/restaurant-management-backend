@@ -6,11 +6,11 @@ import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
 
 export const handleCreateStaff = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   const { name } = req.body;
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
 
     requiredField(name, "Name is required");
@@ -50,10 +50,10 @@ export const handleCreateStaff = async (req, res, next) => {
 
 export const handleGetStaffs = async (req, res, next) => {
   try {
-    const { user } = req.user;
+    const user = req.user.user ? req.user.user : req.user;
 
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
 
     const search = req.query.search || "";
@@ -116,8 +116,11 @@ export const handleGetStaffs = async (req, res, next) => {
 
 export const handleDeleteStaff = async (req, res, next) => {
   const { ids } = req.body;
-
+  const user = req.user.user ? req.user.user : req.user;
   try {
+    if (!user) {
+      throw createError(400, "User not found. Please login again");
+    }
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }

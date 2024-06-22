@@ -8,11 +8,11 @@ import crypto from "crypto";
 
 export const handleCreateTable = async (req, res, next) => {
   const { table_name } = req.body;
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
 
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
     requiredField(table_name, "Table Name is required");
     const processedTableName = validateString(table_name, "Table Name", 2, 30);
@@ -50,13 +50,15 @@ export const handleCreateTable = async (req, res, next) => {
 };
 
 export const handleGetTables = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
+
   const search = req.query.search || "";
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit);
+
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
@@ -114,8 +116,12 @@ export const handleGetTables = async (req, res, next) => {
 
 export const handleDeleteTable = async (req, res, next) => {
   const { ids } = req.body;
+  const user = req.user.user ? req.user.user : req.user;
 
   try {
+    if (!user) {
+      throw createError(400, "User not found. Please login again");
+    }
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }
@@ -138,10 +144,10 @@ export const handleDeleteTable = async (req, res, next) => {
 export const handleEditTable = async (req, res, next) => {
   const { table_name } = req.body;
   const id = req.params;
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid id");

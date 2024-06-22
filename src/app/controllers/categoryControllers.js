@@ -7,11 +7,11 @@ import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
 
 export const handleCreateCategory = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   const { category } = req.body;
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
 
     requiredField(category, "Category name is required");
@@ -51,14 +51,14 @@ export const handleCreateCategory = async (req, res, next) => {
 };
 
 export const handleGetCategories = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   const search = req.query.search || "";
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit);
 
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
 
     const regExSearch = new RegExp(".*" + search + ".*", "i");
@@ -115,10 +115,10 @@ export const handleGetCategories = async (req, res, next) => {
 export const handleEditCategory = async (req, res, next) => {
   const { category } = req.body;
   const id = req.params;
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid id");
@@ -162,7 +162,11 @@ export const handleEditCategory = async (req, res, next) => {
 
 export const handleDeleteCategory = async (req, res, next) => {
   const { ids } = req.body;
+  const { user } = req.user;
   try {
+    if (!user) {
+      throw createError(400, "User not found. Login Again");
+    }
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }

@@ -10,13 +10,13 @@ import crypto from "crypto";
 import validator from "validator";
 
 export const handleAddSoldInvoice = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   const { table_name, member, served_by, items, total_bill, total_discount } =
     req.body;
-
+  console.log(user);
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
 
     requiredField(table_name, "Table name is required");
@@ -116,7 +116,7 @@ export const handleAddSoldInvoice = async (req, res, next) => {
 
 export const handleGetSoldInvoiceById = async (req, res, next) => {
   const { invoice_id } = req.params;
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   try {
     if (!user) {
       throw createError(400, "User not found. Please login again");
@@ -143,14 +143,14 @@ export const handleGetSoldInvoiceById = async (req, res, next) => {
 };
 
 export const handleGetSoldInvoices = async (req, res, next) => {
-  const { user } = req.user;
+  const user = req.user.user ? req.user.user : req.user;
   const { date, start_date, end_date, month } = req.query;
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit);
 
   try {
     if (!user) {
-      throw createError(401, "User not found. Login Again");
+      throw createError(400, "User not found. Login Again");
     }
 
     let query = { brand: user?.brand_id };
