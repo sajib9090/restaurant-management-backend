@@ -107,10 +107,6 @@ export const handleCreateUser = async (req, res, next) => {
         expiresAt: "",
         subscription_expired: true,
       },
-      contacts: {
-        mobile1: "",
-        mobile2: "",
-      },
       selected_plan: {
         id: "",
         name: "",
