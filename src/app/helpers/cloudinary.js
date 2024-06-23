@@ -7,20 +7,49 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const uploadOnCloudinary = async (localFilePath) => {
+// this method for diskStorage
+// const uploadOnCloudinary = async (localFilePath) => {
+//   try {
+//     if (!localFilePath) return null;
+//     //upload the file on cloudinary
+//     const response = await cloudinary.uploader.upload(localFilePath, {
+//       resource_type: "auto",
+//     });
+//     // file has been uploaded successfull
+//     //console.log("file is uploaded on cloudinary ", response.url);
+//     fs.unlinkSync(localFilePath);
+//     return response;
+//   } catch (error) {
+//     fs.unlinkSync(localFilePath); // remove the locally saved temporary file as the upload operation got failed
+//     return null;
+//   }
+// };
+
+const uploadOnCloudinary = async (bufferFile) => {
   try {
-    if (!localFilePath) return null;
-    //upload the file on cloudinary
-    const response = await cloudinary.uploader.upload(localFilePath, {
-      resource_type: "auto",
+    if (!bufferFile) {
+      throw new Error("No buffer file provided");
+    }
+
+    const response = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { resource_type: "auto" },
+        (error, result) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve(result);
+          }
+        }
+      );
+
+      uploadStream.end(bufferFile);
     });
-    // file has been uploaded successfull
-    //console.log("file is uploaded on cloudinary ", response.url);
-    fs.unlinkSync(localFilePath);
+
     return response;
   } catch (error) {
-    fs.unlinkSync(localFilePath); // remove the locally saved temporary file as the upload operation got failed
-    return null;
+    // Handle any synchronous errors or errors thrown in the try block
+    throw new Error(`Failed to upload file to Cloudinary: ${error.message}`);
   }
 };
 
