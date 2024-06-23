@@ -47,6 +47,10 @@ import {
   handleGetSoldInvoices,
 } from "../controllers/soldInvoiceControllers.js";
 import { upload } from "../middlewares/multer.js";
+import {
+  handleUpdateBrandInfo,
+  handleUpdateBrandLogo,
+} from "../controllers/brandControllers.js";
 
 export const apiRouter = express.Router();
 
@@ -134,3 +138,12 @@ apiRouter.get(
   isLoggedIn,
   handleGetSoldInvoices
 );
+
+// brand route
+apiRouter.patch(
+  "/brands/update-brand-logo/:id",
+  upload.single("brandLogo"),
+  isLoggedIn,
+  handleUpdateBrandLogo
+);
+apiRouter.patch("/brands/update-info/:id", isLoggedIn, handleUpdateBrandInfo);

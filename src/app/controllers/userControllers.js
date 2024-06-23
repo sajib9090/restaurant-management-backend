@@ -107,6 +107,10 @@ export const handleCreateUser = async (req, res, next) => {
         expiresAt: "",
         subscription_expired: true,
       },
+      contacts: {
+        mobile1: "",
+        mobile2: "",
+      },
       selected_plan: {
         id: "",
         name: "",
@@ -717,7 +721,7 @@ export const handleUpdateUserAvatar = async (req, res, next) => {
     }
 
     const avatar = await uploadOnCloudinary(bufferFile);
- 
+
     if (!avatar?.public_id) {
       a;
       throw createError(500, "Something went wrong. Avatar not updated");
