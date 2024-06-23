@@ -134,5 +134,3 @@ apiRouter.get(
   isLoggedIn,
   handleGetSoldInvoices
 );
-
-

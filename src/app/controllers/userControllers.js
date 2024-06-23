@@ -738,5 +738,3 @@ export const handleUpdateUserAvatar = async (req, res, next) => {
     next(error);
   }
 };
-
-
