@@ -688,7 +688,7 @@ export const handleUpdateUserAvatar = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
   const userId = req.params.id;
   const filePath = req.file.path;
-
+  //console.log(filePath)
   try {
     if (!user) {
       throw createError(400, "User not found. Login Again");
