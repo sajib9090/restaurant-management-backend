@@ -97,15 +97,19 @@ export const handleCreateUser = async (req, res, next) => {
       brand_id: brandCount + 1 + "-" + generateBrandCode,
       brand_name: processedBrandName,
       brand_slug: brandSlug,
-      brand_logo: "",
+      brand_logo: { id: "", url: "" },
+      contact: { mobile1: "", mobile2: "" },
       payment_info: {
         payment_invoices: [],
       },
       subscription_info: {
         last_payment: "",
         expiresAt: "",
-        selected_plan_id: "",
         subscription_expired: true,
+      },
+      selected_plan: {
+        id: "",
+        name: "",
       },
       createdAt: new Date(),
       created_by: count + 1 + "-" + generateUserCode,
@@ -735,47 +739,4 @@ export const handleUpdateUserAvatar = async (req, res, next) => {
   }
 };
 
-export const handleRemoveAvatar = async (req, res, next) => {
-  const user = req.user.user ? req.user.user : req.user;
-  const { id } = req.params;
-  try {
-    if (!user) {
-      throw createError(400, "User not found. Login Again");
-    }
-    if (id?.length < 32) {
-      throw createError(400, "Invalid id");
-    }
 
-    const existingUser = await usersCollection.findOne({ user_id: id });
-    if (!existingUser) {
-      throw createError(404, "User not found");
-    }
-
-    if (!existingUser.avatar || !existingUser.avatar.id) {
-      throw createError(400, "You have nothing to remove.");
-    }
-
-    const result = await deleteFromCloudinary(existingUser?.avatar?.id);
-
-    if (result?.result != "ok") {
-      throw createError(500, `Something wet wrong - ${result?.result}`);
-    }
-
-    const updatedUser = await usersCollection.findOneAndUpdate(
-      { user_id: id },
-      { $set: { avatar: { id: "", url: "" } } },
-      { returnOriginal: false }
-    );
-
-    if (!updatedUser?.avatar?.id || !updatedUser?.avatar?.url) {
-      throw createError(500, "User update failed.");
-    }
-
-    res.status(200).send({
-      success: true,
-      message: "User avatar removed",
-    });
-  } catch (error) {
-    next(error);
-  }
-};

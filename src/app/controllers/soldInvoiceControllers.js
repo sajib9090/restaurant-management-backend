@@ -13,7 +13,7 @@ export const handleAddSoldInvoice = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
   const { table_name, member, served_by, items, total_bill, total_discount } =
     req.body;
-  console.log(user);
+
   try {
     if (!user) {
       throw createError(400, "User not found. Login Again");

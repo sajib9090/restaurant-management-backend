@@ -8,7 +8,6 @@ import {
   handleGetUsers,
   handleLoginUser,
   handleRefreshToken,
-  handleRemoveAvatar,
   handleUpdateUserAvatar,
 } from "../controllers/userControllers.js";
 import { isLoggedIn } from "../middlewares/authUser.js";
@@ -47,7 +46,6 @@ import {
   handleGetSoldInvoiceById,
   handleGetSoldInvoices,
 } from "../controllers/soldInvoiceControllers.js";
-import { handleUploadAvatar } from "../controllers/avatar.js";
 import { upload } from "../middlewares/multer.js";
 
 export const apiRouter = express.Router();
@@ -66,7 +64,6 @@ apiRouter.patch(
   isLoggedIn,
   handleUpdateUserAvatar
 );
-apiRouter.patch("/users/remove-avatar/:id", isLoggedIn, handleRemoveAvatar);
 apiRouter.post(
   "/users/auth-create-user",
   isLoggedIn,
@@ -138,4 +135,4 @@ apiRouter.get(
   handleGetSoldInvoices
 );
 
-apiRouter.post("/avatars/upload", upload.single("avatar"), handleUploadAvatar);
+
