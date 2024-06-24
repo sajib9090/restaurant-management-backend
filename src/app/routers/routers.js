@@ -141,9 +141,9 @@ apiRouter.get(
 
 // brand route
 apiRouter.patch(
-  "/brands/update-brand-logo/:id",
+  "/brands/update-brand-logo",
   upload.single("brandLogo"),
   isLoggedIn,
   handleUpdateBrandLogo
 );
-apiRouter.patch("/brands/update-info/:id", isLoggedIn, handleUpdateBrandInfo);
+apiRouter.patch("/brands/update-info", isLoggedIn, handleUpdateBrandInfo);
