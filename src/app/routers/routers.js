@@ -59,7 +59,7 @@ apiRouter.post("/users/create-user", handleCreateUser);
 apiRouter.get("/users/verify/:token", handleActivateUserAccount);
 apiRouter.post("/users/auth-user-login", handleLoginUser);
 apiRouter.get("/users/find-user/:id", isLoggedIn, handleGetUser);
-apiRouter.get("/users/find-current-user", isLoggedIn, handleGetCurrentUser);
+apiRouter.post("/users/find-current-user", isLoggedIn, handleGetCurrentUser);
 apiRouter.get("/users/find-users", isLoggedIn, handleGetUsers);
 apiRouter.get("/users/auth-manage-token", handleRefreshToken);
 apiRouter.patch(
