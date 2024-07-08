@@ -1,9 +1,13 @@
 import createError from "http-errors";
 import { ObjectId } from "mongodb";
-import { staffsCollection } from "../collections/collections.js";
+import {
+  soldInvoiceCollection,
+  staffsCollection,
+} from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
 import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
+import validator from "validator";
 
 export const handleCreateStaff = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
@@ -134,6 +138,76 @@ export const handleDeleteStaff = async (req, res, next) => {
     res.status(200).send({
       success: true,
       message: "Staff deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleGetStaffSellRecord = async (req, res, next) => {
+  const user = req.user.user ? req.user.user : req.user;
+  const { month } = req.params;
+
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Please login again");
+    }
+
+    let query = { brand: user?.brand_id };
+
+    if (month) {
+      if (!validator.isISO8601(month, { strict: true })) {
+        throw createError(
+          400,
+          "Invalid month format. Expected format: YYYY-MM"
+        );
+      }
+
+      const startOfMonth = new Date(month);
+      startOfMonth.setUTCDate(1);
+      startOfMonth.setUTCHours(0, 0, 0, 0);
+      const endOfMonth = new Date(startOfMonth);
+      endOfMonth.setUTCMonth(endOfMonth.getUTCMonth() + 1);
+      endOfMonth.setUTCDate(0);
+      endOfMonth.setUTCHours(23, 59, 59, 999);
+      query.createdAt = { $gte: startOfMonth, $lte: endOfMonth };
+    }
+
+    const sellReport = await soldInvoiceCollection
+      .aggregate([
+        { $match: query },
+        {
+          $project: {
+            total_bill: 1,
+            served_by: 1,
+            createdAt: 1,
+            day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          },
+        },
+        {
+          $group: {
+            _id: { day: "$day", served_by: "$served_by" },
+            total_bill: { $sum: "$total_bill" },
+          },
+        },
+        {
+          $sort: { "_id.day": 1, "_id.served_by": 1 },
+        },
+        {
+          $project: {
+            day: "$_id.day",
+            served_by: "$_id.served_by",
+            total_bill: 1,
+            _id: 0,
+          },
+        },
+      ])
+      .toArray();
+
+    res.status(200).send({
+      success: true,
+      message: "Staff sell record retrieved successfully",
+      data: sellReport,
     });
   } catch (error) {
     next(error);

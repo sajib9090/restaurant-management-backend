@@ -9,6 +9,10 @@ export const categoriesCollection = client.db(db_name).collection("categories");
 export const menuItemsCollection = client.db(db_name).collection("menu-items");
 export const membersCollection = client.db(db_name).collection("members");
 export const staffsCollection = client.db(db_name).collection("staffs");
+export const plansCollection = client.db(db_name).collection("plans");
+export const planPurchaseCollection = client
+  .db(db_name)
+  .collection("plan-purchase");
 export const soldInvoiceCollection = client
   .db(db_name)
   .collection("sold-invoices");

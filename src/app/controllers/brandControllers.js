@@ -156,3 +156,28 @@ export const handleUpdateBrandInfo = async (req, res, next) => {
     next(error);
   }
 };
+
+export const handleGetCurrentUserBrand = async (req, res, next) => {
+  const user = req.user.user ? req.user.user : req.user;
+
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Login Again");
+    }
+    const existingBrand = await brandsCollection.findOne({
+      brand_id: user?.brand_id,
+    });
+
+    if (!existingBrand) {
+      throw createError(404, "Brand not found");
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "Brand retrieved successfully",
+      data: existingBrand,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

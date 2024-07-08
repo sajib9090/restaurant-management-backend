@@ -97,20 +97,24 @@ export const handleCreateUser = async (req, res, next) => {
       brand_id: brandCount + 1 + "-" + generateBrandCode,
       brand_name: processedBrandName,
       brand_slug: brandSlug,
-      brand_logo: { id: "", url: "" },
-      address: { location: "", sub_district: "", district: "" },
-      contact: { mobile1: "", mobile2: "" },
-      payment_info: {
-        payment_invoices: [],
-      },
+      brand_logo: { id: null, url: null },
+      address: { location: null, sub_district: null, district: null },
+      contact: { mobile1: null, mobile2: null },
       subscription_info: {
-        last_payment: "",
-        expiresAt: "",
-        subscription_expired: true,
+        status: false,
+        previous_payment_amount: null,
+        previous_payment_time: null,
+        end_time: null,
+        free_trial: {
+          status: false,
+          start_time: null,
+          end_time: null,
+          trial_over: false,
+        },
       },
       selected_plan: {
-        id: "",
-        name: "",
+        id: null,
+        name: null,
       },
       createdAt: new Date(),
       created_by: count + 1 + "-" + generateUserCode,
@@ -119,7 +123,7 @@ export const handleCreateUser = async (req, res, next) => {
     const newUser = {
       user_id: count + 1 + "-" + generateUserCode,
       name: processedName,
-      avatar: { id: "", url: "" },
+      avatar: { id: null, url: null },
       email: processedEmail,
       username: generateUsername,
       brand_id: newBrand?.brand_id,
@@ -138,7 +142,7 @@ export const handleCreateUser = async (req, res, next) => {
         user_id: count + 1 + "-" + generateUserCode,
       },
       jwtSecret,
-      "15m"
+      "5m"
     );
 
     const brandResult = await brandsCollection.insertOne(newBrand);
@@ -296,7 +300,7 @@ export const handleLoginUser = async (req, res, next) => {
     }
 
     // check email verified or not
-    if (!user.email_verified) {
+    if (!user?.email_verified) {
       const token = await createJWT(
         {
           user_id: user.user_id,
@@ -328,22 +332,22 @@ export const handleLoginUser = async (req, res, next) => {
     }
 
     // check user band or not
-    if (user.banned_user) {
+    if (user?.banned_user) {
       return next(
         createError.Unauthorized("You are banned. Please contact authority")
       );
     }
 
     // check user removed or not
-    if (user.deleted_user) {
+    if (user?.deleted_user) {
       return next(
         createError.Unauthorized("You are deleted. Please contact authority")
       );
     }
     const loggedInUser = {
-      user_id: user.user_id,
-      brand_id: user.brand_id,
-      role: user.role,
+      user_id: user?.user_id,
+      brand_id: user?.brand_id,
+      role: user?.role,
     };
 
     // const brand = await brandsCollection.findOne({ brand_id: user?.brand_id });
@@ -370,6 +374,24 @@ export const handleLoginUser = async (req, res, next) => {
       message: "User logged in successfully",
       data: userWithBrand,
       accessToken,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleLogoutUser = async (req, res, next) => {
+  try {
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+    // console.log(req.user);
+    // res.clearCookie("accessToken", options);
+    res.clearCookie("refreshToken", options);
+    res.status(200).send({
+      success: true,
+      message: "User logout successfully",
     });
   } catch (error) {
     next(error);
@@ -733,6 +755,89 @@ export const handleUpdateUserAvatar = async (req, res, next) => {
     res.status(200).send({
       success: true,
       message: "Avatar updated",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleUpdateUserNameAndMobile = async (req, res, next) => {
+  const user = req.user.user ? req.user.user : req.user;
+  const { name, username, mobile } = req.body;
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Login Again");
+    }
+    const existingUser = await usersCollection.findOne(
+      {
+        user_id: user?.user_id,
+      },
+      { projection: { name: 1, username: 1, mobile: 1, _id: 0 } }
+    );
+
+    if (!existingUser) {
+      throw createError(404, "User not found");
+    }
+
+    let updateFields = {};
+
+    if (name && existingUser?.name !== name) {
+      const processedName = validateString(name, "Name", 2, 100);
+      updateFields.name = processedName;
+    }
+    let processedUsername;
+    if (username) {
+      const inpUsername = validateString(username, "Username", 4, 100);
+      processedUsername = validateString(username, "Username", 4, 100).replace(
+        /\s+/g,
+        ""
+      );
+    }
+    if (processedUsername && existingUser?.username !== processedUsername) {
+      const existingUsername = await usersCollection.findOne({
+        username: processedUsername,
+      });
+      if (existingUsername) {
+        throw createError(400, "Username already exists");
+      }
+      updateFields.username = processedUsername;
+    }
+
+    if (mobile && existingUser?.mobile !== mobile) {
+      if (mobile?.length !== 11) {
+        throw createError(400, "Mobile number must be 11 characters");
+      }
+
+      if (!validator.isMobilePhone(mobile, "any")) {
+        throw createError(400, "Invalid mobile number");
+      }
+
+      const existingMobile = await usersCollection.findOne({ mobile: mobile });
+      if (existingMobile) {
+        throw createError(400, "Mobile number already exists");
+      }
+
+      updateFields.mobile = mobile;
+    }
+
+    if (Object.keys(updateFields).length === 0)
+      throw createError(400, "Nothing available for update");
+
+    if (Object.keys(updateFields).length > 0) {
+      updateFields.updatedAt = new Date();
+      const updateResult = await usersCollection.updateOne(
+        { user_id: user?.user_id },
+        { $set: updateFields }
+      );
+
+      if (updateResult.modifiedCount !== 1) {
+        throw createError(500, "Failed to update user");
+      }
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "User updated",
     });
   } catch (error) {
     next(error);

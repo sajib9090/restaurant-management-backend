@@ -7,8 +7,10 @@ import {
   handleGetUser,
   handleGetUsers,
   handleLoginUser,
+  handleLogoutUser,
   handleRefreshToken,
   handleUpdateUserAvatar,
+  handleUpdateUserNameAndMobile,
 } from "../controllers/userControllers.js";
 import { isLoggedIn } from "../middlewares/authUser.js";
 import {
@@ -39,6 +41,7 @@ import {
 import {
   handleCreateStaff,
   handleDeleteStaff,
+  handleGetStaffSellRecord,
   handleGetStaffs,
 } from "../controllers/staffControllers.js";
 import {
@@ -48,9 +51,19 @@ import {
 } from "../controllers/soldInvoiceControllers.js";
 import { upload } from "../middlewares/multer.js";
 import {
+  handleGetCurrentUserBrand,
   handleUpdateBrandInfo,
   handleUpdateBrandLogo,
 } from "../controllers/brandControllers.js";
+import {
+  handleAddPlan,
+  handleGetPlan,
+  handleGetPlans,
+  handlePurchasePlan,
+} from "../controllers/planController.js";
+// import { handleCreateBkashPayment } from "../controllers/bkashController.js";
+// import axios from "axios";
+// import { bkashBaseUrl } from "../helpers/bkashBaseUrl.js";
 
 export const apiRouter = express.Router();
 
@@ -58,6 +71,7 @@ export const apiRouter = express.Router();
 apiRouter.post("/users/create-user", handleCreateUser);
 apiRouter.get("/users/verify/:token", handleActivateUserAccount);
 apiRouter.post("/users/auth-user-login", handleLoginUser);
+apiRouter.post("/users/auth-user-logout", handleLogoutUser);
 apiRouter.get("/users/find-user/:id", isLoggedIn, handleGetUser);
 apiRouter.post("/users/find-current-user", isLoggedIn, handleGetCurrentUser);
 apiRouter.get("/users/find-users", isLoggedIn, handleGetUsers);
@@ -72,6 +86,11 @@ apiRouter.post(
   "/users/auth-create-user",
   isLoggedIn,
   handleAddBrandMaintainUser
+);
+apiRouter.patch(
+  "/users/update-user-info",
+  isLoggedIn,
+  handleUpdateUserNameAndMobile
 );
 //table route
 apiRouter.post("/tables/create-table", isLoggedIn, handleCreateTable);
@@ -122,6 +141,11 @@ apiRouter.patch("/members/update-member/:id", isLoggedIn, handleEditMember);
 apiRouter.post("/staffs/create-staff", isLoggedIn, handleCreateStaff);
 apiRouter.get("/staffs/get-all", isLoggedIn, handleGetStaffs);
 apiRouter.delete("/staffs/delete-staff", isLoggedIn, handleDeleteStaff);
+apiRouter.get(
+  "/staffs/sell-record/:month",
+  isLoggedIn,
+  handleGetStaffSellRecord
+);
 //sold-invoice route
 apiRouter.post(
   "/sold-invoices/add-sold-invoice",
@@ -147,3 +171,53 @@ apiRouter.patch(
   handleUpdateBrandLogo
 );
 apiRouter.patch("/brands/update-info", isLoggedIn, handleUpdateBrandInfo);
+apiRouter.get("/brands/current-brand", isLoggedIn, handleGetCurrentUserBrand);
+
+// plan route
+apiRouter.post("/plans/create-plan", isLoggedIn, handleAddPlan);
+apiRouter.get("/plans/get-all", handleGetPlans);
+apiRouter.get("/plans/get/:id", handleGetPlan);
+apiRouter.post("/plans/purchase-plan", isLoggedIn, handlePurchasePlan);
+
+// bkash
+// const bkashCredentials = {
+//   username: "sandboxTokenizedUser02",
+//   password: "sandboxTokenizedUser02@12345",
+//   app_key: "4f6o0cjiki2rfm34kfdadl1eqq",
+//   app_secret: "2is7hdktrekvrbljjh44ll3d9l1dtjo4pasmjvs5vl5qr3fug4b",
+// };
+
+// let grantToken = "";
+// // Middleware to obtain an access token
+// const obtainTokenMiddleware = async (req, res, next) => {
+//   try {
+//     const tokenResponse = await axios.post(
+//       `https://tokenized.sandbox.bka.sh/v1.2.0-beta/tokenized/checkout/token/grant`,
+//       {},
+//       {
+//         headers: {
+//           username: bkashCredentials.username,
+//           password: bkashCredentials.password,
+//         },
+//         auth: {
+//           username: bkashCredentials.app_key,
+//           password: bkashCredentials.app_secret,
+//         },
+//       }
+//     );
+
+//     console.log(tokenResponse?.data);
+//     accessToken = tokenResponse.data.id_token;
+//     next();
+//   } catch (error) {
+//     res.status(500).json({ error: "Error obtaining token" });
+//   }
+// };
+
+// console.log(grantToken);
+// apiRouter.post(
+//   "/bkash/payment/create",
+//   isLoggedIn,
+//   obtainTokenMiddleware,
+//   handleCreateBkashPayment
+// );
