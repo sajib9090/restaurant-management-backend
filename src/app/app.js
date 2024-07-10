@@ -95,8 +95,7 @@ app.get("/", (req, res) => {
 
 //client error handling
 app.use((req, res, next) => {
-  createError(404, "Route not found!");
-  next();
+  next(createError(404, "Route not found!"));
 });
 
 //server error handling
