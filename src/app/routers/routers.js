@@ -61,6 +61,7 @@ import {
   handleGetPlans,
   handlePurchasePlan,
 } from "../controllers/planController.js";
+import { verifySubscription } from "../middlewares/subscription.js";
 // import { handleCreateBkashPayment } from "../controllers/bkashController.js";
 // import axios from "axios";
 // import { bkashBaseUrl } from "../helpers/bkashBaseUrl.js";
@@ -94,7 +95,12 @@ apiRouter.patch(
 );
 //table route
 apiRouter.post("/tables/create-table", isLoggedIn, handleCreateTable);
-apiRouter.get("/tables/get-all", isLoggedIn, handleGetTables);
+apiRouter.get(
+  "/tables/get-all",
+  isLoggedIn,
+  verifySubscription,
+  handleGetTables
+);
 apiRouter.delete("/tables/delete-table", isLoggedIn, handleDeleteTable);
 apiRouter.patch("/tables/update-table/:id", isLoggedIn, handleEditTable);
 //category route
