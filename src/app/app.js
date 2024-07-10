@@ -38,7 +38,37 @@ app.use(morgan("dev"));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(helmet());
+// Enhanced Helmet Security Configuration
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", "https://trusted-scripts.com"],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'",
+          "https://trusted-styles.com",
+        ],
+        "img-src": ["'self'", "data:", "https://trusted-images.com"],
+        "connect-src": ["'self'", "https://trusted-api.com"],
+        // Add more directives as needed
+      },
+    },
+    frameguard: { action: "deny" }, // Prevents clickjacking
+    hsts: { maxAge: 31536000, includeSubDomains: true }, // Enforces HTTPS
+    noSniff: true, // Prevents MIME type sniffing
+    referrerPolicy: { policy: "no-referrer" }, // Restricts referrer information
+    xssFilter: true, // Mitigates cross-site scripting (XSS) attacks
+    dnsPrefetchControl: { allow: false }, // Disables DNS prefetching
+    expectCt: { enforce: true, maxAge: 86400 }, // Enables Certificate Transparency
+    permittedCrossDomainPolicies: { permittedPolicies: "none" }, // Restricts Adobe Flash and PDF files
+  })
+);
+
+// Remove "X-Powered-By" header
+app.disable("x-powered-by");
 
 // routes
 app.use("/api/v2", apiRouter);
