@@ -2,6 +2,7 @@ import createError from "http-errors";
 import { ObjectId } from "mongodb";
 import {
   brandsCollection,
+  plansCollection,
   usersCollection,
 } from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
@@ -300,7 +301,7 @@ export const handleLoginUser = async (req, res, next) => {
     }
 
     // check email verified or not
-    if (!user?.email_verified) {
+    if (user?.email && !user?.email_verified) {
       const token = await createJWT(
         {
           user_id: user.user_id,
@@ -349,13 +350,6 @@ export const handleLoginUser = async (req, res, next) => {
       brand_id: user?.brand_id,
       role: user?.role,
     };
-
-    // const brand = await brandsCollection.findOne({ brand_id: user?.brand_id });
-    // if (loggedInUser?.role !== "super admin") {
-    //   if (!brand) {
-    //     throw createError(400, "Something wrong. Login again");
-    //   }
-    // }
 
     const userWithBrand = { ...loggedInUser };
 
@@ -576,7 +570,7 @@ export const handleRefreshToken = async (req, res, next) => {
 
 export const handleAddBrandMaintainUser = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
-  const { name, email, mobile, password, role } = req.body;
+  const { name, username, mobile, password, role } = req.body;
   try {
     if (!user) {
       throw createError(400, "User not found. Please login again");
@@ -586,17 +580,41 @@ export const handleAddBrandMaintainUser = async (req, res, next) => {
     }
 
     requiredField(name, "Name is required");
-    requiredField(email, "Email is required");
+    requiredField(username, "Username is required");
     requiredField(mobile, "Mobile number is required");
     requiredField(password, "Password is required");
     requiredField(role, "Role is required");
 
     const processedName = validateString(name, "Name", 3, 30);
-    const processedEmail = email?.toLowerCase();
+    const processedUsername = validateString(username, "Username", 3, 30);
     const processedRole = validateString(role, "Role", 3, 10);
 
-    if (!validator.isEmail(processedEmail)) {
-      throw createError(400, "Invalid email address");
+    const brandInfo = await brandsCollection.findOne(
+      { brand_id: user?.brand_id },
+      { projection: { selected_plan: 1, _id: 0 } }
+    );
+
+    if (!brandInfo?.selected_plan?.id) {
+      throw createError(
+        400,
+        "Please select a plan before adding a user to your brand."
+      );
+    }
+
+    const selectedPlanInfo = await plansCollection.findOne(
+      { plan_id: brandInfo?.selected_plan?.id },
+      { projection: { user_limit: 1, _id: 0 } }
+    );
+
+    const brandUsers = await usersCollection.countDocuments({
+      brand_id: user?.brand_id,
+    });
+
+    if (brandUsers >= selectedPlanInfo?.user_limit) {
+      throw createError(
+        400,
+        `You have reached your user limit. Please upgrade your plan to add more users.`
+      );
     }
 
     if (mobile?.length !== 11) {
@@ -607,21 +625,20 @@ export const handleAddBrandMaintainUser = async (req, res, next) => {
       throw createError(400, "Invalid mobile number");
     }
 
-    const allowedRoles = ["chairman", "admin", "regular"];
+    const allowedRoles = ["admin", "regular"];
 
     if (!allowedRoles.includes(processedRole)) {
       throw createError(
         400,
-        "Invalid role. Only chairman, admin, regular are allowed"
+        "Invalid role. Only admin and regular are allowed"
       );
     }
 
-    const generateUsername = processedEmail?.split("@")[0];
     await duplicateChecker(
       usersCollection,
-      "email",
-      processedEmail,
-      "Email already exists. Please login"
+      "username",
+      processedUsername,
+      "Username already exists. Please login"
     );
 
     await duplicateChecker(
@@ -655,16 +672,14 @@ export const handleAddBrandMaintainUser = async (req, res, next) => {
     const newUser = {
       user_id: count + 1 + "-" + generateUserCode,
       name: processedName,
-      avatar: "",
-      email: processedEmail,
-      username: generateUsername,
+      avatar: { id: null, url: null },
+      username: processedUsername,
       brand_id: user?.brand_id,
       mobile: mobile,
       password: hashedPassword,
       role: processedRole,
       banned_user: false,
       deleted_user: false,
-      email_verified: false,
       mobile_verified: false,
       createdAt: new Date(),
     };
@@ -674,33 +689,9 @@ export const handleAddBrandMaintainUser = async (req, res, next) => {
       throw createError(500, "Can't create user try again");
     }
 
-    const token = await createJWT(
-      {
-        user_id: count + 1 + "-" + generateUserCode,
-      },
-      jwtSecret,
-      "15m"
-    );
-
-    //prepare email
-    const emailData = {
-      email,
-      subject: "Account Creation Confirmation",
-      html: `<h2 style="text-transform: capitalize;">Hello ${processedName}!</h2>
-      <p>Please click here to <a href="${clientURL}/api/v2/users/verify/${token}">activate your account</a></p>
-      <p>This link will expires in 5 minutes</p>`,
-    };
-
-    // send email with nodemailer
-    try {
-      await emailWithNodeMailer(emailData);
-    } catch (emailError) {
-      next(createError(500, "Failed to send verification email"));
-    }
-
     res.status(200).send({
       success: true,
-      message: "New user created successfully for maintain brand",
+      message: "New user created successfully.",
     });
   } catch (error) {
     next(error);
@@ -838,6 +829,182 @@ export const handleUpdateUserNameAndMobile = async (req, res, next) => {
     res.status(200).send({
       success: true,
       message: "User updated",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleDeleteUsers = async (req, res, next) => {
+  const { id } = req.params;
+  const user = req.user.user ? req.user.user : req.user;
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Please login again");
+    }
+    if (user?.role !== "chairman" && user?.role !== "admin") {
+      throw createError(
+        403,
+        "Forbidden access. Only chairman and admin can access"
+      );
+    }
+    if (id?.length < 32) {
+      throw createError(400, "Invalid id");
+    }
+
+    const existingUser = await usersCollection.findOne(
+      {
+        $and: [{ user_id: id }, { brand_id: user?.brand_id }],
+      },
+      { projection: { role: 1, user_id: 1, _id: 0, avatar: 1 } }
+    );
+
+    if (!existingUser) {
+      throw createError(404, "User not found");
+    }
+
+    if (existingUser?.role === "chairman" && user?.role === "admin") {
+      throw createError(403, "You have no right to delete your senior");
+    }
+
+    // todo add error validation if occurred
+    if (
+      existingUser?.avatar &&
+      existingUser?.avatar?.id &&
+      existingUser?.avatar?.url
+    ) {
+      const result = await deleteFromCloudinary(existingUser.avatar.id);
+      if (result?.result !== "ok") {
+        throw createError(500, "Something went wrong. Please try again");
+      }
+    }
+
+    const deleteUser = await usersCollection.deleteOne({
+      user_id: existingUser?.user_id,
+    });
+
+    if (deleteUser?.deletedCount === 0) {
+      throw createError(500, "User can't deleted. Try again");
+    }
+    res.status(200).send({
+      success: true,
+      message: "User deleted",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleChangeOwnPassword = async (req, res, next) => {
+  const user = req.user.user ? req.user.user : req.user;
+  const { oldPassword, newPassword, confirmNewPassword } = req.body;
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Please log in again.");
+    }
+
+    if (oldPassword === newPassword) {
+      throw createError(
+        400,
+        "New password cannot be the same as the old password. Please choose a different password."
+      );
+    }
+
+    const trimmedOldPassword = oldPassword.replace(/\s/g, "");
+    const trimmedNewPassword = newPassword.replace(/\s/g, "");
+
+    if (trimmedOldPassword.length < 8 || trimmedOldPassword.length > 30) {
+      throw createError(
+        400,
+        "Old password must be at least 8 characters long and not more than 30 characters long."
+      );
+    }
+
+    if (!/[a-z]/.test(trimmedOldPassword) || !/\d/.test(trimmedOldPassword)) {
+      throw createError(
+        400,
+        "Old password must contain at least one letter (a-z) and one number."
+      );
+    }
+
+    if (trimmedNewPassword.length < 8 || trimmedNewPassword.length > 30) {
+      throw createError(
+        400,
+        "New password must be at least 8 characters long and not more than 30 characters long."
+      );
+    }
+
+    if (!/[a-z]/.test(trimmedNewPassword) || !/\d/.test(trimmedNewPassword)) {
+      throw createError(
+        400,
+        "New password must contain at least one letter (a-z) and one number."
+      );
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      throw createError(
+        400,
+        "New password and confirm new password do not match. Please ensure both passwords are identical."
+      );
+    }
+
+    const existingUser = await usersCollection.findOne(
+      {
+        user_id: user?.user_id,
+        brand_id: user?.brand_id,
+      },
+      { projection: { password: 1, _id: 0, changed_password: 1 } }
+    );
+    if (!existingUser) {
+      throw createError(404, "User not found.");
+    }
+
+    const isOldPasswordValid = await bcrypt.compare(
+      trimmedOldPassword,
+      existingUser.password
+    );
+    if (!isOldPasswordValid) {
+      return next(createError.Unauthorized("Invalid old password."));
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedNewPassword = await bcrypt.hash(trimmedNewPassword, salt);
+
+    if (existingUser?.changed_password) {
+      for (let previousHashedPassword of existingUser?.changed_password) {
+        const isPreviousPassword = await bcrypt.compare(
+          trimmedNewPassword,
+          previousHashedPassword
+        );
+        if (isPreviousPassword) {
+          throw createError(
+            400,
+            "You cannot reuse a previous password. Please choose a new password."
+          );
+        }
+      }
+    }
+
+    const updateResult = await usersCollection.updateOne(
+      { user_id: user?.user_id },
+      {
+        $set: { password: hashedNewPassword },
+        $push: {
+          changed_password: {
+            $each: [existingUser.password],
+            $slice: -3,
+          },
+        },
+      }
+    );
+
+    if (updateResult?.modifiedCount == 0) {
+      throw createError(500, "Something went wrong. Try again");
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "Password changed successfully.",
     });
   } catch (error) {
     next(error);

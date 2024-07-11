@@ -2,7 +2,9 @@ import express from "express";
 import {
   handleActivateUserAccount,
   handleAddBrandMaintainUser,
+  handleChangeOwnPassword,
   handleCreateUser,
+  handleDeleteUsers,
   handleGetCurrentUser,
   handleGetUser,
   handleGetUsers,
@@ -92,6 +94,12 @@ apiRouter.patch(
   "/users/update-user-info",
   isLoggedIn,
   handleUpdateUserNameAndMobile
+);
+apiRouter.delete("/users/delete-user/:id", isLoggedIn, handleDeleteUsers);
+apiRouter.patch(
+  "/users/change-own-password",
+  isLoggedIn,
+  handleChangeOwnPassword
 );
 //table route
 apiRouter.post("/tables/create-table", isLoggedIn, handleCreateTable);

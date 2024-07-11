@@ -203,12 +203,8 @@ export const handlePurchasePlan = async (req, res, next) => {
           selected_plan: { id: plan_id, name: plan?.plan_name },
           subscription_info: {
             status: true,
-            previous_payment_amount:
-              existingBrand?.subscription_info?.previous_payment_amount ||
-              newPurchase?.amount,
-            previous_payment_time:
-              existingBrand?.subscription_info?.previous_payment_time ||
-              new Date(),
+            previous_payment_amount: newPurchase?.amount,
+            previous_payment_time: new Date(),
             end_time: futureDate,
           },
         },
