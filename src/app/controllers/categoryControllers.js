@@ -1,10 +1,14 @@
 import createError from "http-errors";
 import { ObjectId } from "mongodb";
-import { categoriesCollection } from "../collections/collections.js";
+import {
+  categoriesCollection,
+  removedUsersCollection,
+} from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
 import slugify from "slugify";
 import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 
 export const handleCreateCategory = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
@@ -14,6 +18,7 @@ export const handleCreateCategory = async (req, res, next) => {
       throw createError(400, "User not found. Login Again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     requiredField(category, "Category name is required");
     const processedCategory = validateString(category, "Category Name", 2, 50);
 
@@ -61,6 +66,7 @@ export const handleGetCategories = async (req, res, next) => {
       throw createError(400, "User not found. Login Again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
     let query;
@@ -120,6 +126,8 @@ export const handleEditCategory = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid id");
     }
@@ -167,6 +175,8 @@ export const handleDeleteCategory = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }

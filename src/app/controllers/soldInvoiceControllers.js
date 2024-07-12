@@ -2,22 +2,26 @@ import createError from "http-errors";
 import { ObjectId } from "mongodb";
 import {
   membersCollection,
+  removedUsersCollection,
   soldInvoiceCollection,
 } from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
 import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
 import validator from "validator";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 
 export const handleAddSoldInvoice = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
   const { table_name, member, served_by, items, total_bill, total_discount } =
     req.body;
-  
+
   try {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
 
     requiredField(table_name, "Table name is required");
     requiredField(served_by, "Served by staff name is required");
@@ -121,6 +125,8 @@ export const handleGetSoldInvoiceById = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Please login again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (invoice_id?.length < 33) {
       throw createError(400, "Invalid invoice id");
     }
@@ -153,6 +159,7 @@ export const handleGetSoldInvoices = async (req, res, next) => {
       throw createError(400, "User not found. Login Again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     let query = { brand: user?.brand_id };
 
     if (user?.role === "super admin") {

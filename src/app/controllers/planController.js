@@ -6,8 +6,10 @@ import {
   brandsCollection,
   planPurchaseCollection,
   plansCollection,
+  removedUsersCollection,
   usersCollection,
 } from "../collections/collections.js";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 // import { CronJob } from "cron";
 
 export const handleAddPlan = async (req, res, next) => {
@@ -25,6 +27,8 @@ export const handleAddPlan = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (user?.role !== "super admin") {
       throw createError(403, "Forbidden access. Only authority can access");
     }
@@ -136,6 +140,8 @@ export const handlePurchasePlan = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
 
     requiredField(amount, "Amount is required");
     requiredField(plan_id, "Plan is required");

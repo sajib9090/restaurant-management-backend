@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import {
   brandsCollection,
   plansCollection,
+  removedUsersCollection,
   usersCollection,
 } from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
@@ -26,6 +27,7 @@ import {
   deleteFromCloudinary,
   uploadOnCloudinary,
 } from "../helpers/cloudinary.js";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 
 export const handleCreateUser = async (req, res, next) => {
   const { name, email, brand_name, mobile, password } = req.body;
@@ -402,6 +404,8 @@ export const handleGetUsers = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Please login again.");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
     let query;
@@ -480,6 +484,7 @@ export const handleGetCurrentUser = async (req, res, next) => {
       throw createError(400, "User not found. Login again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const currentUser = await usersCollection.findOne({
       user_id: user?.user_id,
     });
@@ -575,6 +580,8 @@ export const handleAddBrandMaintainUser = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Please login again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (user?.role !== "admin" && user?.role !== "chairman") {
       throw createError(404, "Forbidden access. Only authority can access");
     }
@@ -706,6 +713,8 @@ export const handleUpdateUserAvatar = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (userId?.length < 33) {
       throw createError(400, "Invalid id");
     }
@@ -759,6 +768,8 @@ export const handleUpdateUserNameAndMobile = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const existingUser = await usersCollection.findOne(
       {
         user_id: user?.user_id,
@@ -842,6 +853,8 @@ export const handleDeleteUsers = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Please login again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (user?.role !== "chairman" && user?.role !== "admin") {
       throw createError(
         403,
@@ -856,7 +869,7 @@ export const handleDeleteUsers = async (req, res, next) => {
       {
         $and: [{ user_id: id }, { brand_id: user?.brand_id }],
       },
-      { projection: { role: 1, user_id: 1, _id: 0, avatar: 1 } }
+      { projection: { role: 1, brand_id: 1, user_id: 1, _id: 0, avatar: 1 } }
     );
 
     if (!existingUser) {
@@ -886,6 +899,16 @@ export const handleDeleteUsers = async (req, res, next) => {
     if (deleteUser?.deletedCount === 0) {
       throw createError(500, "User can't deleted. Try again");
     }
+
+    const newDeletedUser = {
+      user_id: existingUser?.user_id,
+      brand_id: existingUser?.brand_id,
+      createdBy: user?.user_id,
+      createdAt: new Date(),
+    };
+
+    await removedUsersCollection.insertOne(newDeletedUser);
+
     res.status(200).send({
       success: true,
       message: "User deleted",
@@ -902,7 +925,7 @@ export const handleChangeOwnPassword = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Please log in again.");
     }
-
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (oldPassword === newPassword) {
       throw createError(
         400,

@@ -1,6 +1,9 @@
 import createError from "http-errors";
 import { ObjectId } from "mongodb";
-import { brandsCollection } from "../collections/collections.js";
+import {
+  brandsCollection,
+  removedUsersCollection,
+} from "../collections/collections.js";
 import {
   deleteFromCloudinary,
   uploadOnCloudinary,
@@ -8,6 +11,7 @@ import {
 import slugify from "slugify";
 import { validateString } from "../helpers/validateString.js";
 import validator from "validator";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 
 export const handleUpdateBrandLogo = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
@@ -17,6 +21,8 @@ export const handleUpdateBrandLogo = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
 
     if (!bufferFile) {
       throw createError(400, "Brand logo is required");
@@ -68,6 +74,8 @@ export const handleUpdateBrandInfo = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
 
     if (user?.role != "chairman" && user?.role != "admin") {
       throw createError(403, "Forbidden access. Only authority can access");
@@ -164,6 +172,8 @@ export const handleGetCurrentUserBrand = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const existingBrand = await brandsCollection.findOne({
       brand_id: user?.brand_id,
     });

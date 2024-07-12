@@ -1,10 +1,14 @@
 import createError from "http-errors";
 import { ObjectId } from "mongodb";
-import { tablesCollection } from "../collections/collections.js";
+import {
+  removedUsersCollection,
+  tablesCollection,
+} from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
 import slugify from "slugify";
 import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 
 export const handleCreateTable = async (req, res, next) => {
   const { table_name } = req.body;
@@ -14,6 +18,8 @@ export const handleCreateTable = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     requiredField(table_name, "Table Name is required");
     const processedTableName = validateString(table_name, "Table Name", 2, 30);
 
@@ -60,6 +66,8 @@ export const handleGetTables = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
     let query;
@@ -122,6 +130,8 @@ export const handleDeleteTable = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Please login again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }
@@ -149,6 +159,8 @@ export const handleEditTable = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid id");
     }

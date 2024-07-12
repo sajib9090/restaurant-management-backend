@@ -1,10 +1,14 @@
 import createError from "http-errors";
 import { ObjectId } from "mongodb";
-import { membersCollection } from "../collections/collections.js";
+import {
+  membersCollection,
+  removedUsersCollection,
+} from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
 import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
 import validator from "validator";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 
 export const handleCreateMember = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
@@ -14,6 +18,7 @@ export const handleCreateMember = async (req, res, next) => {
       throw createError(400, "User not found. Login Again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     requiredField(name, "Name is required");
     requiredField(mobile, "Mobile is required");
 
@@ -68,6 +73,8 @@ export const handleGetMembers = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
 
     const search = req.query.search || "";
     const spent = req.query.spent || "";
@@ -148,6 +155,8 @@ export const handleGetSingleMemberByMobile = async (req, res, next) => {
       throw createError(400, "User not found. Please login");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
+
     requiredField(mobile, "Mobile number is required");
     if (mobile?.length !== 11) {
       throw createError(400, "Mobile number should be 11 characters");
@@ -181,6 +190,8 @@ export const handleDeleteMember = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Please login again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }
@@ -208,6 +219,8 @@ export const handleEditMember = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid id");
     }

@@ -3,11 +3,13 @@ import { ObjectId } from "mongodb";
 import {
   menuItemsCollection,
   categoriesCollection,
+  removedUsersCollection,
 } from "../collections/collections.js";
 import { validateString } from "../helpers/validateString.js";
 import slugify from "slugify";
 import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 
 export const handleCreateMenuItem = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
@@ -17,6 +19,7 @@ export const handleCreateMenuItem = async (req, res, next) => {
       throw createError(400, "User not found. Login Again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     requiredField(item_name, "Item name is required");
     requiredField(category, "Category id is required");
     requiredField(item_price, "Item price is required");
@@ -83,6 +86,7 @@ export const handleGetMenuItems = async (req, res, next) => {
       throw createError(400, "User not found. Login Again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const search = req.query.search || "";
     const category = req.query.category || "";
     const price = req.query.price || "";
@@ -174,6 +178,8 @@ export const handleDeleteMenuItem = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }
@@ -201,6 +207,8 @@ export const handleEditMenuItem = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!ObjectId.isValid(id)) {
       throw createError(400, "Invalid id");
     }

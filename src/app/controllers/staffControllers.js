@@ -1,6 +1,7 @@
 import createError from "http-errors";
 import { ObjectId } from "mongodb";
 import {
+  removedUsersCollection,
   soldInvoiceCollection,
   staffsCollection,
 } from "../collections/collections.js";
@@ -8,6 +9,7 @@ import { validateString } from "../helpers/validateString.js";
 import { requiredField } from "../helpers/requiredField.js";
 import crypto from "crypto";
 import validator from "validator";
+import { removedUserChecker } from "../helpers/removedUserChecker.js";
 
 export const handleCreateStaff = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
@@ -17,6 +19,7 @@ export const handleCreateStaff = async (req, res, next) => {
       throw createError(400, "User not found. Login Again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     requiredField(name, "Name is required");
 
     const processedName = validateString(name, "Name", 2, 100);
@@ -60,6 +63,7 @@ export const handleGetStaffs = async (req, res, next) => {
       throw createError(400, "User not found. Login Again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const search = req.query.search || "";
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit);
@@ -125,6 +129,8 @@ export const handleDeleteStaff = async (req, res, next) => {
     if (!user) {
       throw createError(400, "User not found. Please login again");
     }
+
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     if (!Array.isArray(ids)) {
       throw createError("ids must be an array");
     }
@@ -153,6 +159,7 @@ export const handleGetStaffSellRecord = async (req, res, next) => {
       throw createError(400, "User not found. Please login again");
     }
 
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     let query = { brand: user?.brand_id };
 
     if (month) {

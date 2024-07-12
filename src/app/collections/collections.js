@@ -16,3 +16,6 @@ export const planPurchaseCollection = client
 export const soldInvoiceCollection = client
   .db(db_name)
   .collection("sold-invoices");
+export const removedUsersCollection = client
+  .db(db_name)
+  .collection("removed-users");
