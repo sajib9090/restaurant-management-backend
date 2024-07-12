@@ -11,7 +11,14 @@ export const verifySubscription = async (req, res, next) => {
 
     const brand = await brandsCollection.findOne(
       { brand_id: user?.brand_id },
-      { projection: { subscription_info: 1, brand_id: 1, _id: 0 } }
+      {
+        projection: {
+          subscription_info: 1,
+          brand_id: 1,
+          _id: 0,
+          selected_plan: 1,
+        },
+      }
     );
 
     const endTimeDate = new Date(brand.subscription_info.end_time);
@@ -20,6 +27,10 @@ export const verifySubscription = async (req, res, next) => {
     const remainingDays = Math.ceil(
       (endTimeDate - currentDate) / (1000 * 60 * 60 * 24)
     );
+
+    if (!brand?.selected_plan?.id) {
+      throw createError(400, "Please select a subscription plan to continue.");
+    }
 
     if (remainingDays < 1) {
       if (brand?.subscription_info?.status) {
@@ -35,7 +46,6 @@ export const verifySubscription = async (req, res, next) => {
       return res.status(403).send({
         status: false,
         message: `Your subscription is expired.`,
-        // dueAmount: result?.total_due || "N/A",
       });
     }
     next();
