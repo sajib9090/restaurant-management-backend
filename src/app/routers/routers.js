@@ -3,6 +3,7 @@ import {
   handleActivateUserAccount,
   handleAddBrandMaintainUser,
   handleChangeOwnPassword,
+  handleChangeRoleAndPasswordByAuthority,
   handleCreateUser,
   handleDeleteUsers,
   handleGetCurrentUser,
@@ -100,6 +101,11 @@ apiRouter.patch(
   "/users/change-own-password",
   isLoggedIn,
   handleChangeOwnPassword
+);
+apiRouter.patch(
+  "/users/change-user-credentials-by-authority/:id",
+  isLoggedIn,
+  handleChangeRoleAndPasswordByAuthority
 );
 //table route
 apiRouter.post("/tables/create-table", isLoggedIn, handleCreateTable);

@@ -426,6 +426,8 @@ export const handleGetUsers = async (req, res, next) => {
             { mobile: regExSearch },
             { email: regExSearch },
             { username: regExSearch },
+            { role: regExSearch },
+            { user_id: regExSearch },
           ],
         };
       } else {
@@ -444,6 +446,7 @@ export const handleGetUsers = async (req, res, next) => {
             { mobile: regExSearch },
             { email: regExSearch },
             { username: regExSearch },
+            { role: regExSearch },
           ],
         };
       } else {
@@ -855,7 +858,11 @@ export const handleDeleteUsers = async (req, res, next) => {
     }
 
     await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
-    if (user?.role !== "chairman" && user?.role !== "admin") {
+    if (
+      user?.role !== "super admin" &&
+      user?.role !== "chairman" &&
+      user?.role !== "admin"
+    ) {
       throw createError(
         403,
         "Forbidden access. Only chairman and admin can access"
@@ -1028,6 +1035,112 @@ export const handleChangeOwnPassword = async (req, res, next) => {
     res.status(200).send({
       success: true,
       message: "Password changed successfully.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleChangeRoleAndPasswordByAuthority = async (
+  req,
+  res,
+  next
+) => {
+  const user = req.user.user ? req.user.user : req.user;
+  const { id } = req.params;
+  const { role, password } = req.body;
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Please log in again.");
+    }
+
+    if (
+      user?.role !== "super admin" &&
+      user?.role !== "chairman" &&
+      user?.role !== "admin"
+    ) {
+      throw createError(403, "Forbidden access. Only authority can access");
+    }
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
+
+    if (id?.length < 32) {
+      throw createError(400, "Invalid Id");
+    }
+
+    const queryUser = await usersCollection.findOne(
+      { user_id: id },
+      { projection: { role: 1 } }
+    );
+
+    if (!queryUser) {
+      throw createError(404, "User not found with this id");
+    }
+
+    if (
+      queryUser?.role == "chairman" &&
+      user?.role !== "chairman" &&
+      user?.role !== "super admin"
+    ) {
+      throw createError(403, "Forbidden access. You can't edit your senior");
+    }
+
+    let updateFields = {};
+
+    if (role) {
+      const processedRole = validateString(role, "Role", 3, 10);
+      const allowedRoles = ["admin", "regular"];
+      if (!allowedRoles.includes(processedRole)) {
+        throw createError(
+          400,
+          "Invalid role. Only admin and regular are allowed"
+        );
+      }
+
+      if (processedRole == queryUser?.role) {
+        throw createError(400, "The role is same as before");
+      }
+
+      updateFields.role = processedRole;
+    }
+
+    if (password) {
+      const trimmedPassword = password.replace(/\s/g, "");
+      if (trimmedPassword.length < 8 || trimmedPassword.length > 30) {
+        throw createError(
+          400,
+          "Password must be at least 8 characters long and not more than 30 characters long"
+        );
+      }
+
+      if (!/[a-z]/.test(trimmedPassword) || !/\d/.test(trimmedPassword)) {
+        throw createError(
+          400,
+          "Password must contain at least one letter (a-z) and one number"
+        );
+      }
+
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(trimmedPassword, salt);
+      const processedPassword = hashedPassword;
+      updateFields.password = processedPassword;
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      throw createError(400, "No fields to update");
+    }
+
+    const updatedUser = await usersCollection.updateOne(
+      { _id: new ObjectId(queryUser?._id) },
+      { $set: updateFields }
+    );
+
+    if (updatedUser.modifiedCount === 0) {
+      throw createError(500, "Something went wrong. Try again");
+    }
+
+    res.status(200).send({
+      success: true,
+      message: "User Updated successfully",
     });
   } catch (error) {
     next(error);

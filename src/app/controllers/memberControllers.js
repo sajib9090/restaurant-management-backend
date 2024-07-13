@@ -233,9 +233,9 @@ export const handleEditMember = async (req, res, next) => {
     }
 
     let updateFields = {};
-    let processedName;
+
     if (name && existingMember?.name) {
-      processedName = validateString(name, "Name", 2, 100);
+      const processedName = validateString(name, "Name", 2, 100);
       updateFields.name = processedName;
     }
 
