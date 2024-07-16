@@ -10,7 +10,7 @@ import {
   usersCollection,
 } from "../collections/collections.js";
 import { removedUserChecker } from "../helpers/removedUserChecker.js";
-import { CronJob } from "cron";
+// import { CronJob } from "cron";
 
 export const handleAddPlan = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
@@ -230,21 +230,21 @@ export const handlePurchasePlan = async (req, res, next) => {
   }
 };
 
-const updatePlanPrices = async () => {
-  const percentageIncrease = 0.05; // Increase by 5%
-  const plans = await plansCollection.find().toArray();
+// const updatePlanPrices = async () => {
+//   const percentageIncrease = 0.05; // Increase by 5%
+//   const plans = await plansCollection.find().toArray();
 
-  const updatePromises = plans.map(async (plan) => {
-    const newPrice = plan.price * (1 + percentageIncrease);
-    await plansCollection.updateOne(
-      { plan_id: plan.plan_id },
-      { $set: { price: newPrice } }
-    );
-  });
+//   const updatePromises = plans.map(async (plan) => {
+//     const newPrice = plan.price * (1 + percentageIncrease);
+//     await plansCollection.updateOne(
+//       { plan_id: plan.plan_id },
+//       { $set: { price: newPrice } }
+//     );
+//   });
 
-  await Promise.all(updatePromises);
-  console.log("Plan prices updated");
-};
+//   await Promise.all(updatePromises);
+//   console.log("Plan prices updated");
+// };
 
-const priceUpdateJob = new CronJob("*/10 * * * * *", updatePlanPrices);
-priceUpdateJob.start();
+// const priceUpdateJob = new CronJob("*/10 * * * * *", updatePlanPrices);
+// priceUpdateJob.start();
