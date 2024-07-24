@@ -19,3 +19,4 @@ export const soldInvoiceCollection = client
 export const removedUsersCollection = client
   .db(db_name)
   .collection("removed-users");
+export const suppliersCollection = client.db(db_name).collection("suppliers");

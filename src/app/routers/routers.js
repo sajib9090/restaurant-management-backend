@@ -65,6 +65,10 @@ import {
   handlePurchasePlan,
 } from "../controllers/planController.js";
 import { verifySubscription } from "../middlewares/subscription.js";
+import {
+  handleAddSupplier,
+  handleGetSuppliers,
+} from "../controllers/supplierController.js";
 // import { handleCreateBkashPayment } from "../controllers/bkashController.js";
 // import axios from "axios";
 // import { bkashBaseUrl } from "../helpers/bkashBaseUrl.js";
@@ -198,6 +202,10 @@ apiRouter.post("/plans/create-plan", isLoggedIn, handleAddPlan);
 apiRouter.get("/plans/get-all", handleGetPlans);
 apiRouter.get("/plans/get/:id", handleGetPlan);
 apiRouter.post("/plans/purchase-plan", isLoggedIn, handlePurchasePlan);
+
+// supplier route
+apiRouter.post("/suppliers/add-supplier", isLoggedIn, handleAddSupplier);
+apiRouter.get("/suppliers/get-all", isLoggedIn, handleGetSuppliers);
 
 // bkash
 // const bkashCredentials = {
