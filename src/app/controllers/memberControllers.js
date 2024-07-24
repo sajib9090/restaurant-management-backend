@@ -121,13 +121,50 @@ export const handleGetMembers = async (req, res, next) => {
       sortCriteria = { total_discount: 1 };
     }
 
-    const members = await membersCollection
-      .find(query)
-      .sort(sortCriteria)
-      .limit(limit)
-      .skip((page - 1) * limit)
-      .toArray();
+    let members;
+    if (user?.role === "super admin") {
+      const pipeline = [
+        { $match: query },
+        {
+          $lookup: {
+            from: "brands",
+            localField: "brand",
+            foreignField: "brand_id",
+            as: "brand_info",
+          },
+        },
+        { $unwind: "$brand_info" },
+        {
+          $project: {
+            member_id: 1,
+            name: 1,
+            brand: 1,
+            mobile: 1,
+            discount_value: 1,
+            total_discount: 1,
+            total_spent: 1,
+            invoices: 1,
+            createdBy: 1,
+            createdAt: 1,
+            "brand_info.brand_id": 1,
+            "brand_info.brand_name": 1,
+            "brand_info.brand_logo": 1,
+          },
+        },
+        { $sort: sortCriteria },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+      ];
 
+      members = await membersCollection.aggregate(pipeline).toArray();
+    } else {
+      members = await membersCollection
+        .find(query)
+        .sort(sortCriteria)
+        .limit(limit)
+        .skip((page - 1) * limit)
+        .toArray();
+    }
     const count = await membersCollection.countDocuments(query);
 
     res.status(200).send({
@@ -232,7 +269,7 @@ export const handleEditMember = async (req, res, next) => {
       throw createError(404, "Member not found");
     }
 
-    let updateFields = {};
+    let updateFields = { updatedAt: new Date() };
 
     if (name && existingMember?.name) {
       const processedName = validateString(name, "Name", 2, 100);

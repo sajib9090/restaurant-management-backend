@@ -115,7 +115,6 @@ export const handleGetMenuItems = async (req, res, next) => {
       }
     } else {
       if (search) {
-        console.log(search);
         query = {
           $and: [
             {
@@ -145,12 +144,50 @@ export const handleGetMenuItems = async (req, res, next) => {
       sortCriteria = { item_price: 1 };
     }
 
-    const menus = await menuItemsCollection
-      .find(query)
-      .sort(sortCriteria)
-      .limit(limit)
-      .skip((page - 1) * limit)
-      .toArray();
+    let menus;
+    if (user?.role === "super admin") {
+      const pipeline = [
+        { $match: query },
+        {
+          $lookup: {
+            from: "brands",
+            localField: "brand",
+            foreignField: "brand_id",
+            as: "brand_info",
+          },
+        },
+        { $unwind: "$brand_info" },
+        {
+          $project: {
+            _id: 1,
+            item_id: 1,
+            item_name: 1,
+            item_slug: 1,
+            brand: 1,
+            category: 1,
+            discount: 1,
+            item_price: 1,
+            createdBy: 1,
+            createdAt: 1,
+            "brand_info.brand_id": 1,
+            "brand_info.brand_name": 1,
+            "brand_info.brand_logo": 1,
+          },
+        },
+        { $sort: sortCriteria },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+      ];
+
+      menus = await menuItemsCollection.aggregate(pipeline).toArray();
+    } else {
+      menus = await menuItemsCollection
+        .find(query)
+        .sort(sortCriteria)
+        .limit(limit)
+        .skip((page - 1) * limit)
+        .toArray();
+    }
 
     const count = await menuItemsCollection.countDocuments(query);
 

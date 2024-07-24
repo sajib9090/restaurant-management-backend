@@ -94,12 +94,49 @@ export const handleGetCategories = async (req, res, next) => {
     }
 
     let sortCriteria = { category: 1 };
-    const categories = await categoriesCollection
-      .find(query)
-      .sort(sortCriteria)
-      .limit(limit)
-      .skip((page - 1) * limit)
-      .toArray();
+
+    let categories;
+    if (user?.role === "super admin") {
+      const pipeline = [
+        { $match: query },
+        {
+          $lookup: {
+            from: "brands",
+            localField: "brand",
+            foreignField: "brand_id",
+            as: "brand_info",
+          },
+        },
+        { $unwind: "$brand_info" },
+        {
+          $project: {
+            _id: 1,
+            category_id: 1,
+            category: 1,
+            category_slug: 1,
+            brand: 1,
+            createdBy: 1,
+            createdAt: 1,
+            "brand_info.brand_id": 1,
+            "brand_info.brand_name": 1,
+            "brand_info.brand_logo": 1,
+          },
+        },
+        { $sort: sortCriteria },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+      ];
+
+      categories = await categoriesCollection.aggregate(pipeline).toArray();
+    } else {
+      categories = await categoriesCollection
+        .find(query)
+        .sort(sortCriteria)
+        .limit(limit)
+        .skip((page - 1) * limit)
+        .toArray();
+    }
+
     const count = await categoriesCollection.countDocuments(query);
     res.status(200).send({
       success: true,

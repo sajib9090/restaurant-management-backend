@@ -396,7 +396,6 @@ export const handleLogoutUser = async (req, res, next) => {
 
 export const handleGetUsers = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
-
   const search = req.query.search || "";
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit);
@@ -408,8 +407,6 @@ export const handleGetUsers = async (req, res, next) => {
     await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
-    let query;
-
     if (
       user?.role != "super admin" &&
       user?.role != "admin" &&
@@ -418,6 +415,7 @@ export const handleGetUsers = async (req, res, next) => {
       throw createError(404, "Forbidden access. Only authority can access");
     }
 
+    let query;
     if (user?.role == "super admin") {
       if (search) {
         query = {
@@ -455,14 +453,56 @@ export const handleGetUsers = async (req, res, next) => {
     }
 
     let sortCriteria = { name: 1 };
-    const users = await usersCollection
-      .find(query)
-      .sort(sortCriteria)
-      .limit(limit)
-      .skip((page - 1) * limit)
-      .toArray();
+
+    let users;
+    if (user?.role === "super admin") {
+      const pipeline = [
+        { $match: query },
+        {
+          $lookup: {
+            from: "brands",
+            localField: "brand_id",
+            foreignField: "brand_id",
+            as: "brand_info",
+          },
+        },
+        { $unwind: "$brand_info" },
+        {
+          $project: {
+            _id: 1,
+            user_id: 1,
+            name: 1,
+            avatar: 1,
+            email: 1,
+            username: 1,
+            mobile: 1,
+            brand_id: 1,
+            role: 1,
+            createdAt: 1,
+            banned_user: 1,
+            email_verified: 1,
+            "brand_info.brand_id": 1,
+            "brand_info.brand_name": 1,
+            "brand_info.brand_logo": 1,
+          },
+        },
+        { $sort: sortCriteria },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+      ];
+
+      users = await usersCollection.aggregate(pipeline).toArray();
+    } else {
+      users = await usersCollection
+        .find(query)
+        .sort(sortCriteria)
+        .limit(limit)
+        .skip((page - 1) * limit)
+        .toArray();
+    }
 
     const count = await usersCollection.countDocuments(query);
+
     res.status(200).send({
       success: true,
       message: "Users retrieved successfully",

@@ -97,14 +97,49 @@ export const handleGetTables = async (req, res, next) => {
 
     let sortCriteria = { table_name: 1 };
 
-    const tables = await tablesCollection
-      .find(query)
-      .sort(sortCriteria)
-      .limit(limit)
-      .skip((page - 1) * limit)
-      .toArray();
+    let tables;
+    if (user?.role === "super admin") {
+      const pipeline = [
+        { $match: query },
+        {
+          $lookup: {
+            from: "brands",
+            localField: "brand",
+            foreignField: "brand_id",
+            as: "brand_info",
+          },
+        },
+        { $unwind: "$brand_info" },
+        {
+          $project: {
+            _id: 1,
+            table_id: 1,
+            table_name: 1,
+            table_slug: 1,
+            createdBy: 1,
+            createdAt: 1,
+            "brand_info.brand_id": 1,
+            "brand_info.brand_name": 1,
+            "brand_info.brand_logo": 1,
+          },
+        },
+        { $sort: sortCriteria },
+        { $skip: (page - 1) * limit },
+        { $limit: limit },
+      ];
+
+      tables = await tablesCollection.aggregate(pipeline).toArray();
+    } else {
+      tables = await tablesCollection
+        .find(query)
+        .sort(sortCriteria)
+        .limit(limit)
+        .skip((page - 1) * limit)
+        .toArray();
+    }
 
     const count = await tablesCollection.countDocuments(query);
+
     res.status(200).send({
       success: true,
       message: "Tables retrieved successfully",
