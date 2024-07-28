@@ -152,6 +152,7 @@ export const handleGetSoldInvoices = async (req, res, next) => {
   const { date, start_date, end_date, month } = req.query;
   const page = Number(req.query.page) || 1;
   const limit = Number(req.query.limit);
+  const brandFilter = req.query.brand || "";
 
   try {
     if (!user) {
@@ -222,6 +223,9 @@ export const handleGetSoldInvoices = async (req, res, next) => {
         endOfMonth.setUTCHours(23, 59, 59, 999);
         query.createdAt = { $gte: startOfMonth, $lte: endOfMonth };
       }
+      if (brandFilter) {
+        query = { brand: brandFilter };
+      }
     } else {
       if (date) {
         if (
@@ -284,13 +288,12 @@ export const handleGetSoldInvoices = async (req, res, next) => {
       }
     }
 
-    const soldInvoicesQuery = soldInvoiceCollection.find(query);
+    const soldInvoices = await soldInvoiceCollection
+      .find(query)
+      .limit(limit)
+      .skip((page - 1) * limit)
+      .toArray();
 
-    if (limit) {
-      soldInvoicesQuery.limit(limit).skip((page - 1) * limit);
-    }
-
-    const soldInvoices = await soldInvoicesQuery.toArray();
     const count = await soldInvoiceCollection.countDocuments(query);
 
     res.status(200).send({

@@ -82,8 +82,9 @@ export const handleAddSupplier = async (req, res, next) => {
 export const handleGetSuppliers = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
   const search = req.query.search || "";
+  const brandFilter = req.query.brand || "";
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit);
+  const limit = req.query.limit ? Number(req.query.limit) : null;
   try {
     if (!user) {
       throw createError(400, "User not found. Login Again");
@@ -93,33 +94,93 @@ export const handleGetSuppliers = async (req, res, next) => {
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
     let query;
-
-    if (search) {
-      query = {
-        $and: [
-          {
-            brand_id: user?.brand_id,
-          },
-        ],
-        $or: [
-          { name: regExSearch },
-          { company_name: regExSearch },
-          { mobile1: regExSearch },
-          { mobile2: regExSearch },
-        ],
-      };
+    if (user?.role === "super admin") {
+      if (search) {
+        query = {
+          $or: [
+            { name: regExSearch },
+            { company_name: regExSearch },
+            { mobile1: regExSearch },
+            { mobile2: regExSearch },
+          ],
+        };
+      } else if (brandFilter) {
+        query = {
+          brand_id: brandFilter,
+        };
+      } else {
+        query = {};
+      }
     } else {
-      query = { brand_id: user?.brand_id };
+      if (search) {
+        query = {
+          $and: [
+            {
+              brand_id: user?.brand_id,
+            },
+          ],
+          $or: [
+            { name: regExSearch },
+            { company_name: regExSearch },
+            { mobile1: regExSearch },
+            { mobile2: regExSearch },
+          ],
+        };
+      } else {
+        query = { brand_id: user?.brand_id };
+      }
     }
 
     let sortCriteria = { name: 1 };
 
-    const suppliers = await suppliersCollection
-      .find(query)
-      .sort(sortCriteria)
-      .limit(limit)
-      .skip((page - 1) * limit)
-      .toArray();
+    let suppliers;
+    if (user?.role === "super admin") {
+      const pipeline = [
+        { $match: query },
+        {
+          $lookup: {
+            from: "brands",
+            localField: "brand_id",
+            foreignField: "brand_id",
+            as: "brand_info",
+          },
+        },
+        { $unwind: "$brand_info" },
+        {
+          $project: {
+            _id: 1,
+            supplier_id: 1,
+            name: 1,
+            company_name: 1,
+            mobile1: 1,
+            mobile2: 1,
+            email: 1,
+            createdBy: 1,
+            createdAt: 1,
+            brand_id: 1,
+            "brand_info.brand_id": 1,
+            "brand_info.brand_name": 1,
+            "brand_info.brand_logo": 1,
+          },
+        },
+        { $sort: sortCriteria },
+      ];
+
+      if (limit) {
+        pipeline.push({ $skip: (page - 1) * limit });
+        pipeline.push({ $limit: limit });
+      }
+
+      suppliers = await suppliersCollection.aggregate(pipeline).toArray();
+    } else {
+      const findQuery = suppliersCollection.find(query).sort(sortCriteria);
+
+      if (limit) {
+        findQuery.limit(limit).skip((page - 1) * limit);
+      }
+
+      suppliers = await findQuery.toArray();
+    }
 
     const count = await suppliersCollection.countDocuments(query);
 
@@ -127,12 +188,14 @@ export const handleGetSuppliers = async (req, res, next) => {
       success: true,
       message: "Suppliers retrieved successfully",
       data_found: count,
-      pagination: {
-        totalPages: Math.ceil(count / limit),
-        currentPage: page,
-        previousPage: page - 1 > 0 ? page - 1 : null,
-        nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
-      },
+      pagination: limit
+        ? {
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            previousPage: page - 1 > 0 ? page - 1 : null,
+            nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
+          }
+        : null,
       data: suppliers,
     });
   } catch (error) {

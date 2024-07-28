@@ -54,6 +54,7 @@ import {
 } from "../controllers/soldInvoiceControllers.js";
 import { upload } from "../middlewares/multer.js";
 import {
+  handleGetAllBrands,
   handleGetCurrentUserBrand,
   handleUpdateBrandInfo,
   handleUpdateBrandLogo,
@@ -196,6 +197,7 @@ apiRouter.patch(
 );
 apiRouter.patch("/brands/update-info", isLoggedIn, handleUpdateBrandInfo);
 apiRouter.get("/brands/current-brand", isLoggedIn, handleGetCurrentUserBrand);
+apiRouter.get("/brands/get-all", isLoggedIn, handleGetAllBrands);
 
 // plan route
 apiRouter.post("/plans/create-plan", isLoggedIn, handleAddPlan);

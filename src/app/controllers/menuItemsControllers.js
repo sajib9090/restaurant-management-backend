@@ -81,36 +81,49 @@ export const handleCreateMenuItem = async (req, res, next) => {
 
 export const handleGetMenuItems = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
+  const search = req.query.search || "";
+  const brandFilter = req.query.brand || "";
+  const category = req.query.category || "";
+  const price = req.query.price || "";
+  const page = Number(req.query.page) || 1;
+  const limit = req.query.limit ? Number(req.query.limit) : null;
+
   try {
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
 
     await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
-    const search = req.query.search || "";
-    const category = req.query.category || "";
-    const price = req.query.price || "";
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit);
 
     const regExSearch = new RegExp(".*" + search + ".*", "i");
     const regExCategory = new RegExp(".*" + category + ".*", "i");
 
-    let query;
+    let query = {};
+
     if (user?.role == "super admin") {
+      query = {
+        $and: [],
+      };
+
       if (search) {
-        query = {
+        query.$and.push({
           $or: [
             { item_name: regExSearch },
             { item_slug: regExSearch },
             { category: regExSearch },
           ],
-        };
-      } else if (category) {
-        query = {
-          $or: [{ category: regExCategory }],
-        };
-      } else {
+        });
+      }
+
+      if (brandFilter) {
+        query.$and.push({ brand: brandFilter });
+      }
+
+      if (category) {
+        query.$and.push({ category: regExCategory });
+      }
+
+      if (query.$and.length === 0) {
         query = {};
       }
     } else {
@@ -175,18 +188,20 @@ export const handleGetMenuItems = async (req, res, next) => {
           },
         },
         { $sort: sortCriteria },
-        { $skip: (page - 1) * limit },
-        { $limit: limit },
       ];
-
+      if (limit) {
+        pipeline.push({ $skip: (page - 1) * limit });
+        pipeline.push({ $limit: limit });
+      }
       menus = await menuItemsCollection.aggregate(pipeline).toArray();
     } else {
-      menus = await menuItemsCollection
-        .find(query)
-        .sort(sortCriteria)
-        .limit(limit)
-        .skip((page - 1) * limit)
-        .toArray();
+      const findQuery = menuItemsCollection.find(query).sort(sortCriteria);
+
+      if (limit) {
+        findQuery.limit(limit).skip((page - 1) * limit);
+      }
+
+      menus = await findQuery.toArray();
     }
 
     const count = await menuItemsCollection.countDocuments(query);
@@ -195,12 +210,14 @@ export const handleGetMenuItems = async (req, res, next) => {
       success: true,
       message: "Menu items retrieved successfully",
       data_found: count,
-      pagination: {
-        totalPages: Math.ceil(count / limit),
-        currentPage: page,
-        previousPage: page - 1 > 0 ? page - 1 : null,
-        nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
-      },
+      pagination: limit
+        ? {
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            previousPage: page - 1 > 0 ? page - 1 : null,
+            nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
+          }
+        : null,
       data: menus,
     });
   } catch (error) {

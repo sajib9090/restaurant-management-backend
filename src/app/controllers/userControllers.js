@@ -397,8 +397,9 @@ export const handleLogoutUser = async (req, res, next) => {
 export const handleGetUsers = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
   const search = req.query.search || "";
+  const brandFilter = req.query.brand || "";
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit);
+  const limit = req.query.limit ? Number(req.query.limit) : null;
   try {
     if (!user) {
       throw createError(400, "User not found. Please login again.");
@@ -427,6 +428,10 @@ export const handleGetUsers = async (req, res, next) => {
             { role: regExSearch },
             { user_id: regExSearch },
           ],
+        };
+      } else if (brandFilter) {
+        query = {
+          brand_id: brandFilter,
         };
       } else {
         query = {};
@@ -487,18 +492,20 @@ export const handleGetUsers = async (req, res, next) => {
           },
         },
         { $sort: sortCriteria },
-        { $skip: (page - 1) * limit },
-        { $limit: limit },
       ];
-
+      if (limit) {
+        pipeline.push({ $skip: (page - 1) * limit });
+        pipeline.push({ $limit: limit });
+      }
       users = await usersCollection.aggregate(pipeline).toArray();
     } else {
-      users = await usersCollection
-        .find(query)
-        .sort(sortCriteria)
-        .limit(limit)
-        .skip((page - 1) * limit)
-        .toArray();
+      const findQuery = usersCollection.find(query).sort(sortCriteria);
+
+      if (limit) {
+        findQuery.limit(limit).skip((page - 1) * limit);
+      }
+
+      users = await findQuery.toArray();
     }
 
     const count = await usersCollection.countDocuments(query);
@@ -507,12 +514,14 @@ export const handleGetUsers = async (req, res, next) => {
       success: true,
       message: "Users retrieved successfully",
       data_found: count,
-      pagination: {
-        totalPages: Math.ceil(count / limit),
-        currentPage: page,
-        previousPage: page - 1 > 0 ? page - 1 : null,
-        nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
-      },
+      pagination: limit
+        ? {
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            previousPage: page - 1 > 0 ? page - 1 : null,
+            nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
+          }
+        : null,
       data: users,
     });
   } catch (error) {

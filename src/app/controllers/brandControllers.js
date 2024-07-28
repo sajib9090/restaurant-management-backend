@@ -3,6 +3,7 @@ import { ObjectId } from "mongodb";
 import {
   brandsCollection,
   removedUsersCollection,
+  usersCollection,
 } from "../collections/collections.js";
 import {
   deleteFromCloudinary,
@@ -186,6 +187,104 @@ export const handleGetCurrentUserBrand = async (req, res, next) => {
       success: true,
       message: "Brand retrieved successfully",
       data: existingBrand,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const handleGetAllBrands = async (req, res, next) => {
+  const user = req.user.user ? req.user.user : req.user;
+  const search = req.query.search || "";
+  const page = Number(req.query.page) || 1;
+  const limit = req.query.limit ? Number(req.query.limit) : null;
+
+  try {
+    if (!user) {
+      throw createError(400, "User not found. Login Again");
+    }
+    if (user?.role !== "super admin") {
+      throw createError(403, "Forbidden access.");
+    }
+    await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
+    const rightUser = await usersCollection.findOne({ user_id: user?.user_id });
+    if (!rightUser) {
+      throw createError(403, "Forbidden access.");
+    }
+    if (rightUser?.role !== "super admin") {
+      throw createError(403, "Forbidden access.");
+    }
+    const regExSearch = new RegExp(".*" + search + ".*", "i");
+
+    let query = {};
+    if (search) {
+      query = {
+        $or: [{ brand_name: regExSearch }, { brand_slug: regExSearch }],
+      };
+    }
+
+    let sortCriteria = { brand_name: 1 };
+
+    const pipeline = [
+      { $match: query },
+      {
+        $lookup: {
+          from: "users",
+          localField: "created_by",
+          foreignField: "user_id",
+          as: "creator_info",
+        },
+      },
+      { $unwind: "$creator_info" },
+      {
+        $project: {
+          _id: 1,
+          brand_id: 1,
+          brand_name: 1,
+          brand_slug: 1,
+          brand_logo: 1,
+          address: 1,
+          contact: 1,
+          subscription_info: 1,
+          selected_plan: 1,
+          createdBy: 1,
+          createdAt: 1,
+          "creator_info.user_id": 1,
+          "creator_info.name": 1,
+          "creator_info.avatar": 1,
+          "creator_info.username": 1,
+          "creator_info.brand_id": 1,
+          "creator_info.mobile": 1,
+          "creator_info.role": 1,
+          "creator_info.email_verified": 1,
+          "creator_info.banned_user": 1,
+        },
+      },
+      { $sort: sortCriteria },
+    ];
+
+    if (limit) {
+      pipeline.push({ $skip: (page - 1) * limit });
+      pipeline.push({ $limit: limit });
+    }
+
+    const brands = await brandsCollection.aggregate(pipeline).toArray();
+
+    const count = await brandsCollection.countDocuments(query);
+
+    res.status(200).send({
+      success: true,
+      message: "All brands retrieved successfully",
+      data_found: count,
+      pagination: limit
+        ? {
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            previousPage: page - 1 > 0 ? page - 1 : null,
+            nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
+          }
+        : null,
+      data: brands,
     });
   } catch (error) {
     next(error);

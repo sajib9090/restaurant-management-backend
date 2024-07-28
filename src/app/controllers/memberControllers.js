@@ -69,18 +69,18 @@ export const handleCreateMember = async (req, res, next) => {
 export const handleGetMembers = async (req, res, next) => {
   try {
     const user = req.user.user ? req.user.user : req.user;
+    const search = req.query.search || "";
+    const brandFilter = req.query.brand || "";
+    const spent = req.query.spent || "";
+    const discount = req.query.discount || "";
+    const page = Number(req.query.page) || 1;
+    const limit = req.query.limit ? Number(req.query.limit) : null;
 
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
 
     await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
-
-    const search = req.query.search || "";
-    const spent = req.query.spent || "";
-    const discount = req.query.discount || "";
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit);
 
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
@@ -89,6 +89,10 @@ export const handleGetMembers = async (req, res, next) => {
       if (search) {
         query = {
           $or: [{ name: regExSearch }, { mobile: regExSearch }],
+        };
+      } else if (brandFilter) {
+        query = {
+          brand: brandFilter,
         };
       } else {
         query = {};
@@ -152,18 +156,22 @@ export const handleGetMembers = async (req, res, next) => {
           },
         },
         { $sort: sortCriteria },
-        { $skip: (page - 1) * limit },
-        { $limit: limit },
       ];
+
+      if (limit) {
+        pipeline.push({ $skip: (page - 1) * limit });
+        pipeline.push({ $limit: limit });
+      }
 
       members = await membersCollection.aggregate(pipeline).toArray();
     } else {
-      members = await membersCollection
-        .find(query)
-        .sort(sortCriteria)
-        .limit(limit)
-        .skip((page - 1) * limit)
-        .toArray();
+      const findQuery = membersCollection.find(query).sort(sortCriteria);
+
+      if (limit) {
+        findQuery.limit(limit).skip((page - 1) * limit);
+      }
+
+      members = await findQuery.toArray();
     }
     const count = await membersCollection.countDocuments(query);
 
@@ -171,12 +179,14 @@ export const handleGetMembers = async (req, res, next) => {
       success: true,
       message: "Members retrieved successfully",
       data_found: count,
-      pagination: {
-        totalPages: Math.ceil(count / limit),
-        currentPage: page,
-        previousPage: page - 1 > 0 ? page - 1 : null,
-        nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
-      },
+      pagination: limit
+        ? {
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            previousPage: page - 1 > 0 ? page - 1 : null,
+            nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
+          }
+        : null,
       data: members,
     });
   } catch (error) {

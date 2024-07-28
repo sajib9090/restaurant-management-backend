@@ -58,15 +58,16 @@ export const handleCreateStaff = async (req, res, next) => {
 export const handleGetStaffs = async (req, res, next) => {
   try {
     const user = req.user.user ? req.user.user : req.user;
+    const search = req.query.search || "";
+    const brandFilter = req.query.brand || "";
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit);
 
     if (!user) {
       throw createError(400, "User not found. Login Again");
     }
 
     await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
-    const search = req.query.search || "";
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit);
 
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
@@ -75,6 +76,10 @@ export const handleGetStaffs = async (req, res, next) => {
       if (search) {
         query = {
           $or: [{ name: regExSearch }],
+        };
+      } else if (brandFilter) {
+        query = {
+          brand: brandFilter,
         };
       } else {
         query = {};

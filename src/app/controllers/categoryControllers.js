@@ -58,8 +58,9 @@ export const handleCreateCategory = async (req, res, next) => {
 export const handleGetCategories = async (req, res, next) => {
   const user = req.user.user ? req.user.user : req.user;
   const search = req.query.search || "";
+  const brandFilter = req.query.brand || "";
   const page = Number(req.query.page) || 1;
-  const limit = Number(req.query.limit);
+  const limit = req.query.limit ? Number(req.query.limit) : null;
 
   try {
     if (!user) {
@@ -70,10 +71,14 @@ export const handleGetCategories = async (req, res, next) => {
     const regExSearch = new RegExp(".*" + search + ".*", "i");
 
     let query;
-    if (user?.role == "super admin") {
+    if (user?.role === "super admin") {
       if (search) {
         query = {
           $or: [{ category: regExSearch }, { category_slug: regExSearch }],
+        };
+      } else if (brandFilter) {
+        query = {
+          brand: brandFilter,
         };
       } else {
         query = {};
@@ -123,18 +128,22 @@ export const handleGetCategories = async (req, res, next) => {
           },
         },
         { $sort: sortCriteria },
-        { $skip: (page - 1) * limit },
-        { $limit: limit },
       ];
+
+      if (limit) {
+        pipeline.push({ $skip: (page - 1) * limit });
+        pipeline.push({ $limit: limit });
+      }
 
       categories = await categoriesCollection.aggregate(pipeline).toArray();
     } else {
-      categories = await categoriesCollection
-        .find(query)
-        .sort(sortCriteria)
-        .limit(limit)
-        .skip((page - 1) * limit)
-        .toArray();
+      const findQuery = categoriesCollection.find(query).sort(sortCriteria);
+
+      if (limit) {
+        findQuery.limit(limit).skip((page - 1) * limit);
+      }
+
+      categories = await findQuery.toArray();
     }
 
     const count = await categoriesCollection.countDocuments(query);
@@ -142,12 +151,14 @@ export const handleGetCategories = async (req, res, next) => {
       success: true,
       message: "Categories retrieved successfully",
       data_found: count,
-      pagination: {
-        totalPages: Math.ceil(count / limit),
-        currentPage: page,
-        previousPage: page - 1 > 0 ? page - 1 : null,
-        nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
-      },
+      pagination: limit
+        ? {
+            totalPages: Math.ceil(count / limit),
+            currentPage: page,
+            previousPage: page - 1 > 0 ? page - 1 : null,
+            nextPage: page + 1 <= Math.ceil(count / limit) ? page + 1 : null,
+          }
+        : null,
       data: categories,
     });
   } catch (error) {
