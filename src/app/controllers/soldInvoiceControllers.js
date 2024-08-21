@@ -224,7 +224,13 @@ export const handleGetSoldInvoices = async (req, res, next) => {
         query.createdAt = { $gte: startOfMonth, $lte: endOfMonth };
       }
       if (brandFilter) {
-        query = { brand: brandFilter };
+        if (query.createdAt) {
+          query = {
+            $and: [{ createdAt: query.createdAt }, { brand: brandFilter }],
+          };
+        } else {
+          query.brand = brandFilter;
+        }
       }
     } else {
       if (date) {

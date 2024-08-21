@@ -2,6 +2,7 @@ import createError from "http-errors";
 import { ObjectId } from "mongodb";
 import {
   brandsCollection,
+  otpCollection,
   plansCollection,
   removedUsersCollection,
   usersCollection,
@@ -28,6 +29,7 @@ import {
   uploadOnCloudinary,
 } from "../helpers/cloudinary.js";
 import { removedUserChecker } from "../helpers/removedUserChecker.js";
+import { emailTemplate } from "../template/emailTemplate.js";
 
 export const handleCreateUser = async (req, res, next) => {
   const { name, email, brand_name, mobile, password } = req.body;
@@ -140,14 +142,6 @@ export const handleCreateUser = async (req, res, next) => {
       createdAt: new Date(),
     };
 
-    const token = await createJWT(
-      {
-        user_id: count + 1 + "-" + generateUserCode,
-      },
-      jwtSecret,
-      "5m"
-    );
-
     const brandResult = await brandsCollection.insertOne(newBrand);
     const userResult = await usersCollection.insertOne(newUser);
 
@@ -167,13 +161,30 @@ export const handleCreateUser = async (req, res, next) => {
       throw createError(500, "Can't create user try again");
     }
 
+    // generate OTP
+    const OTP = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
+    const hashedOTP = await bcrypt.hash(OTP, salt);
+
+    const optInfo = {
+      user_id: userResult?.insertedId,
+      otp: hashedOTP,
+      createdAt: new Date(),
+    };
+
+    console.log(OTP);
+
+    const opt = await otpCollection.insertOne(optInfo);
+    if (!opt?.insertedId) {
+      await usersCollection.deleteOne({ user_id: newUser?.user_id });
+      await brandsCollection.deleteOne({ brand_id: newBrand?.brand_id });
+      throw createError(500, "Something went wrong. Please try again");
+    }
+
     //prepare email
     const emailData = {
       email,
       subject: "Account Creation Confirmation",
-      html: `<h2 style="text-transform: capitalize;">Hello ${processedName}!</h2>
-      <p>Please click here to <a href="${clientURL}/api/v2/users/verify/${token}">activate your account</a></p>
-      <p>This link will expires in 5 minutes</p>`,
+      html: emailTemplate(OTP),
     };
 
     // send email with nodemailer
@@ -186,6 +197,7 @@ export const handleCreateUser = async (req, res, next) => {
     res.status(200).send({
       success: true,
       message: `Please go to your email at- ${email} and complete registration process`,
+      data: userResult?.insertedId,
     });
   } catch (error) {
     next(error);
@@ -193,48 +205,154 @@ export const handleCreateUser = async (req, res, next) => {
 };
 
 export const handleActivateUserAccount = async (req, res, next) => {
-  const token = req.params.token;
+  const { id } = req.params;
+  const { otp } = req.body;
+
   try {
-    if (!token) {
-      throw createError(404, "Credential not found");
+    // valid mongodb id
+    if (!ObjectId.isValid(id)) {
+      throw createError(400, "Invalid request");
     }
 
-    const decoded = jwt.verify(token, jwtSecret);
-
-    if (!decoded) {
-      throw createError(404, "Invalid credential");
-    }
-
-    const existingUser = await usersCollection.findOne({
-      user_id: decoded.user_id,
-    });
+    // user exist or not checking
+    const existingUser = await usersCollection.findOne(
+      {
+        _id: new ObjectId(id),
+      },
+      { projection: { user_id: 1, _id: 1, brand_id: 1, role: 1 } }
+    );
 
     if (!existingUser) {
       throw createError(404, "User not found. Try again");
     }
 
-    if (existingUser.email_verified) {
-      return res.redirect(`${frontEndURL}/login`);
+    // check otp exist or not for this requested user
+    const existingOtp = await otpCollection.findOne(
+      {
+        user_id: new ObjectId(existingUser?._id),
+      },
+      { sort: { createdAt: -1 } }
+    );
+    if (!existingOtp) {
+      throw createError(404, "OTP not found");
     }
 
-    const updateUser = await usersCollection.updateOne(
-      { user_id: existingUser.user_id },
-      {
-        $set: {
-          email_verified: true,
-        },
-      }
+    // check timing
+    const currentTime = new Date();
+    const otpCreationTime = new Date(existingOtp.createdAt);
+    const timeDifference = (currentTime - otpCreationTime) / (1000 * 60);
+
+    if (timeDifference > 2) {
+      throw createError(400, "OTP has expired");
+    }
+
+    // match otp
+    const isOtpValid = await bcrypt.compare(otp, existingOtp.otp);
+
+    if (!isOtpValid) {
+      return next(createError.Unauthorized("Invalid OTP"));
+    }
+
+    // update doc
+    const updateUser = {
+      $set: {
+        email_verified: true,
+        updatedAt: new Date(),
+      },
+    };
+    const result = await usersCollection.updateOne(
+      { _id: new ObjectId(id) },
+      updateUser
     );
 
-    if (updateUser.modifiedCount === 0) {
-      throw createError(500, "Something went wrong. Please try again");
+    // otp verified than remove all otp with same user
+    if (result?.modifiedCount > 0) {
+      await otpCollection.deleteMany({
+        user_id: new ObjectId(existingUser?._id),
+      });
     }
 
-    return res.redirect(`${frontEndURL}/login`);
+    const loggedInUser = {
+      user_id: existingUser?.user_id,
+      brand_id: existingUser?.brand_id,
+      role: existingUser?.role,
+    };
+
+    const userWithBrand = { ...loggedInUser };
+
+    const accessToken = await createJWT(userWithBrand, jwtAccessToken, "10m");
+
+    const refreshToken = await createJWT(userWithBrand, jwtRefreshToken, "7d");
+    res.cookie("refreshToken", refreshToken, {
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+    });
+
+    res.status(200).send({
+      success: true,
+      message: "User verified successfully",
+      data: userWithBrand,
+      accessToken,
+    });
   } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.redirect(`${frontEndURL}/expired-credentials`);
+    next(error);
+  }
+};
+
+export const handleRegenerateOTP = async (req, res, next) => {
+  const { id } = req.params;
+  try {
+    const user = await usersCollection.findOne(
+      { _id: new ObjectId(id) },
+      { projection: { email_verified: 1, email: 1 } }
+    );
+    if (!user) {
+      throw createError(404, "User not found");
     }
+
+    if (user?.email_verified) {
+      throw createError(400, "Email already verified");
+    }
+    await otpCollection.deleteMany({
+      user_id: new ObjectId(user?._id),
+    });
+
+    // generate OTP
+    const OTP = crypto.randomInt(0, 1000000).toString();
+    const salt = await bcrypt.genSalt(10);
+    const hashedOTP = await bcrypt.hash(OTP, salt);
+
+    const optInfo = {
+      user_id: user?._id,
+      otp: hashedOTP,
+      createdAt: new Date(),
+    };
+
+    const opt = await otpCollection.insertOne(optInfo);
+    if (!opt?.insertedId) {
+      throw createError(500, "Something wrong try again");
+    }
+
+    // prepare email
+    const emailData = {
+      email: user?.email,
+      subject: "Verify Your Email Address for Account Activation",
+      html: emailTemplate(OTP),
+    };
+    // send email with nodemailer
+    try {
+      await emailWithNodeMailer(emailData);
+    } catch (emailError) {
+      next(createError(500, "Failed to send verification email", emailError));
+    }
+
+    res.status(200).send({
+      success: true,
+      message: `Please go to your email at- ${user?.email} and complete verification process`,
+    });
+  } catch (error) {
     next(error);
   }
 };
@@ -304,34 +422,49 @@ export const handleLoginUser = async (req, res, next) => {
 
     // check email verified or not
     if (user?.email && !user?.email_verified) {
-      const token = await createJWT(
-        {
-          user_id: user.user_id,
-        },
-        jwtSecret,
-        "5m"
-      );
+      // generate OTP
+      const OTP = crypto.randomInt(0, 1000000).toString();
+      const salt = await bcrypt.genSalt(10);
+      const hashedOTP = await bcrypt.hash(OTP, salt);
+
+      const optInfo = {
+        user_id: user?._id,
+        otp: hashedOTP,
+        createdAt: new Date(),
+      };
+
+      const opt = await otpCollection.insertOne(optInfo);
+      if (!opt?.insertedId) {
+        throw createError(500, "Something wrong try again");
+      }
 
       const email = user.email;
       const emailData = {
         email,
         subject: "Account Creation Confirmation",
-        html: `<h2 style="text-transform: capitalize;">Hello ${user.name}!</h2>
-        <p>Please click here to <a href="${clientURL}/api/v2/users/verify/${token}">activate your account</a></p>
-        <p>This link will expire in 5 minutes</p>`,
+        html: emailTemplate(OTP),
       };
 
-      try {
-        await emailWithNodeMailer(emailData);
-      } catch (emailError) {
-        return next(createError(500, "Failed to send verification email"));
-      }
+      console.log(OTP);
+      // try {
+      //   await emailWithNodeMailer(emailData);
+      // } catch (emailError) {
+      //   return next(createError(500, "Failed to send verification email"));
+      // }
+      return res.send({
+        success: true,
+        message: `You are not verified. Please check your email at- ${user.email} and verify your account.`,
+        id: user?._id,
+      });
 
-      return next(
-        createError.Unauthorized(
-          `You are not verified. Please check your email at- ${user.email} and verify your account.`
-        )
-      );
+      // return next(
+      //   createError.Unauthorized(
+      //     `You are not verified. Please check your email at- ${user.email} and verify your account.`,
+      //     {
+      //       data: user?._id,
+      //     }
+      //   )
+      // );
     }
 
     // check user band or not

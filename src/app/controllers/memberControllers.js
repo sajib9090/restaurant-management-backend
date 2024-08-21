@@ -19,6 +19,12 @@ export const handleCreateMember = async (req, res, next) => {
     }
 
     await removedUserChecker(removedUsersCollection, "user_id", user?.user_id);
+    if (!user?.brand_id) {
+      throw createError(
+        404,
+        "Brand not found. Only brand holder can add member"
+      );
+    }
     requiredField(name, "Name is required");
     requiredField(mobile, "Mobile is required");
 

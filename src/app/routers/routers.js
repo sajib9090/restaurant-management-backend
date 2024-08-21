@@ -12,6 +12,7 @@ import {
   handleLoginUser,
   handleLogoutUser,
   handleRefreshToken,
+  handleRegenerateOTP,
   handleUpdateUserAvatar,
   handleUpdateUserNameAndMobile,
 } from "../controllers/userControllers.js";
@@ -78,7 +79,8 @@ export const apiRouter = express.Router();
 
 //user router
 apiRouter.post("/users/create-user", handleCreateUser);
-apiRouter.get("/users/verify/:token", handleActivateUserAccount);
+apiRouter.patch("/users/verify/:id", handleActivateUserAccount);
+apiRouter.post("/users/regenerate-otp/:id", handleRegenerateOTP);
 apiRouter.post("/users/auth-user-login", handleLoginUser);
 apiRouter.post("/users/auth-user-logout", handleLogoutUser);
 apiRouter.get("/users/find-user/:id", isLoggedIn, handleGetUser);
