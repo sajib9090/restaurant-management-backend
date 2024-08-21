@@ -438,33 +438,23 @@ export const handleLoginUser = async (req, res, next) => {
         throw createError(500, "Something wrong try again");
       }
 
-      const email = user.email;
+      const email = user?.email;
       const emailData = {
         email,
         subject: "Account Creation Confirmation",
         html: emailTemplate(OTP),
       };
 
-      console.log(OTP);
-      // try {
-      //   await emailWithNodeMailer(emailData);
-      // } catch (emailError) {
-      //   return next(createError(500, "Failed to send verification email"));
-      // }
+      try {
+        await emailWithNodeMailer(emailData);
+      } catch (emailError) {
+        return next(createError(500, "Failed to send verification email"));
+      }
       return res.send({
         success: true,
         message: `You are not verified. Please check your email at- ${user.email} and verify your account.`,
         id: user?._id,
       });
-
-      // return next(
-      //   createError.Unauthorized(
-      //     `You are not verified. Please check your email at- ${user.email} and verify your account.`,
-      //     {
-      //       data: user?._id,
-      //     }
-      //   )
-      // );
     }
 
     // check user band or not
