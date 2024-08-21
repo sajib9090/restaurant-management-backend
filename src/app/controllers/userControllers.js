@@ -171,8 +171,6 @@ export const handleCreateUser = async (req, res, next) => {
       createdAt: new Date(),
     };
 
-    console.log(OTP);
-
     const opt = await otpCollection.insertOne(optInfo);
     if (!opt?.insertedId) {
       await usersCollection.deleteOne({ user_id: newUser?.user_id });
@@ -320,7 +318,7 @@ export const handleRegenerateOTP = async (req, res, next) => {
     });
 
     // generate OTP
-    const OTP = crypto.randomInt(0, 1000000).toString();
+    const OTP = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
     const salt = await bcrypt.genSalt(10);
     const hashedOTP = await bcrypt.hash(OTP, salt);
 
